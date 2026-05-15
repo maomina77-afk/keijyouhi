@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>支払い確認アプリ (QuaggaJS版)</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+<style>
+  /* --- スタイルは変更なし --- */
+  * { box-sizing: border-box; }
+  body { font-family: sans-serif; font-size: 32px; padding: 12px; margin: 0; background: #f5f5f5; }
+  input, select, button { font-size: 32px; padding: 18px; width: 100%; margin-top: 12px; }
+  button { background: #007bff; color: #fff; border: none; border-radius: 12px; }
+  #reader { width: 100%; max-width: 520px; margin: 16px auto; background: #000; position: relative; }
+  /* QuaggaJS が生成するビデオ要素を枠にフィットさせる */
+  #reader video, #reader canvas { width: 100%; height: auto; }
+  canvas.drawingBuffer { position: absolute; left: 0; top: 0; }
+  /* 以下、既存のスタイルを継承... */
+  #topInfo { position: sticky; top: 0; background: #ffffff; padding: 10px; border-bottom: 3px solid #ccc; z-index: 20; }
+  #candidateList { border: 3px solid #ccc; border-radius: 12px; max-height: 360px; overflow-y: auto; margin-top: 10px; background: #fff; }
+  .list-item { padding: 18px; border-bottom: 1px solid #eee; }
+  .paid { background: #e0ffe0; }
+  #dialogOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 100; }
+  #dialogBox { width: 80%; padding: 24px; border-radius: 16px; color: #fff; text-align: center; }
+</style>
+</head>
+
+<body>
+<div id="topInfo">
+  合計金額: <span id="totalAmount">0</span> 円　
+  最終更新: <span id="lastUpdate">-</span>
+</div>
+
+<div id="searchArea">
+  <div>名簿ファイル（.xlsx）を選択：</div>
+  <input type="file" id="file" accept=".xlsx">
+  <div id="loadStatus" style="font-size:26px; margin-top:4px;"></div>
+  <h3>検索</h3>
+  <input type="text" id="kanaSearch" placeholder="ふりがな検索">
+  <select id="groupSearch"><option value="">組を指定しない</option></select>
+  <input type="text" id="idSearch" placeholder="ID検索">
+  <select id="statusFilter">
+    <option value="all">全員</option>
+    <option value="unpaid">未払者</option>
+    <option value="paid">既払者</option>
+  </select>
+  <button id="filterButton">絞り込む</button>
+  <div id="candidateList"></div>
+</div>
+
+<h3>バーコード読み取り（QuaggaJS）</h3>
+<button id="startScanButton">カメラ起動</button>
+<div id="reader"></div>
+<p id="scanResult"></p>
+
+<button onclick="exportLog()">支払いログをExcel出力</button>
+<button onclick="exportRoster()">更新名簿をExcel出力</button>
+
+<div id="dialogOverlay"><div id="dialogBox"><div id="dialogMessage"></div><div id="dialogButtons"><button id="dialogCancel">いいえ</button><button id="dialogOk">はい</button></div></div></div>
+
+<script>
+/* --- 基本データ・ロジックは継承 --- */
+let roster = [];
+let logs = [];
+let totalAmount = 0;
+let isScanning = false;
+
+// 起動時の復元、保存、Excel処理などは省略せずそのまま使用してください
+// (前のコードと同じため一部割愛しますが、実際のファイルには残してください)
+
+// --- QuaggaJS 処理 ---
+document.getElementById("startScanButton").addEventListener("click", () => {
+  if (isScanning) {
+    Quagga.stop();
+    isScanning = false;
+    document.getElementById("startScanButton").innerText = "カメラ起動";
+    return;
+  }
+
+  Quagga.init({
+    inputStream: {
+      name: "Live",
+      type: "LiveStream",
+      target: document.querySelector('#reader'),
+      constraints: {
+        facingMode: "environment" // 背面カメラ
+      },
+    },
+    decoder: {
+      readers: ["code_39_reader"] // CODE39に特化
+    }
+  }, function(err) {
+    if (err) {
+      alert("エラー: " + err.name + "\n※HTTPS環境か確認してください");
+      return;
+    }
+    Quagga.start();
+    isScanning = true;
+    document.getElementById("startScanButton").innerText = "カメラ停止";
+  });
+});
+
+// 読み取り成功時のイベント
+Quagga.onDetected((data) => {
+  const code = data.codeResult.code;
+  if (!code) return;
+
+  // 連続読み取り防止のため一旦停止
+  Quagga.stop();
+  isScanning = false;
+  document.getElementById("startScanButton").innerText = "カメラ起動";
+  
+  onScanSuccess(code);
+});
+
+function onScanSuccess(code) {
+  document.getElementById("scanResult").innerText = "読み取り: " + code;
+  const person = roster.find(r => (r["ID"] || "").toString() == code);
+
+  if (person) {
+    showDialog(person["氏名"] + " さんを支払い済みにしますか？", "#5cb85c")
+    .then(ok => {
+      if (ok) markPaid(person, "barcode");
+    });
+  } else {
+    alert("ID: " + code + " は名簿に存在しません");
+  }
+}
+
+/* --- 既存の補助関数 (markPaid, showDialog, updateTopInfo, saveState, etc.) は前のコードをそのまま貼り付けてください --- */
+// (中略)
+</script>
+</body>
+</html>
