@@ -2,110 +2,112 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>支払い管理システム 7.0 (同時表示版)</title>
+<title>支払い管理システム 7.0 (最適化版)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <style>
-  /* 全体デザイン：省スペース化 */
-  body { font-family: sans-serif; font-size: 32px; padding: 10px; margin: 0; background: #f0f0f0; }
-  h3 { font-size: 36px; margin: 10px 0; border-left: 8px solid #007bff; padding-left: 15px; }
-  input, select, button { font-size: 32px; padding: 15px; width: 100%; margin-top: 8px; border-radius: 10px; border: 2px solid #ccc; }
+  body { font-family: sans-serif; font-size: 48px; padding: 20px; margin: 0; background: #f0f0f0; }
+  h3 { font-size: 50px; margin: 15px 0; border-left: 10px solid #007bff; padding-left: 20px; }
+  input, select, button { font-size: 48px; padding: 25px; width: 100%; margin-top: 15px; border-radius: 15px; border: 2px solid #ccc; }
   
-  .row-group { display: flex; gap: 10px; margin-top: 8px; }
+  /* 上部ヘッダー */
+  #topInfo { 
+    background: #333; color: white; padding: 20px; border-radius: 20px; 
+    display: flex; justify-content: space-between; align-items: center; font-weight: bold;
+  }
+
+  .row-group { display: flex; gap: 15px; margin-top: 15px; }
   .row-group > * { flex: 1; margin-top: 0; }
 
-  button { background: #007bff; color: white; cursor: pointer; border: none; }
+  button { background: #007bff; color: white; border: none; cursor: pointer; }
   .btn-stop { background: #dc3545; }
-  .btn-excel { background: #28a745; height: 80px; }
+  .btn-reset { background: #6c757d; font-size: 32px; }
+  .btn-excel { background: #28a745; }
 
-  /* スキャナー固定エリア：高さを最小限に */
-  #scannerContainer { position: sticky; top: 0; background: #f0f0f0; z-index: 50; padding-bottom: 10px; }
-  #reader { width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 15px; overflow: hidden; height: 180px; }
+  /* スキャナーエリア */
+  #reader { width: 100%; max-width: 800px; margin: 20px auto; background: #000; border-radius: 20px; overflow: hidden; min-height: 400px; }
   
-  /* リスト表示：1行に圧縮 */
-  #candidateList { border: 3px solid #333; border-radius: 15px; background: #fff; margin-top: 10px; }
+  /* リスト：上下を限界まで詰める */
+  #candidateList { border: 4px solid #333; border-radius: 20px; max-height: 800px; overflow-y: auto; background: #fff; margin-top: 15px; }
   .list-item { 
-    padding: 15px 20px; 
+    padding: 10px 25px; /* 上下をさらに圧縮 */
     border-bottom: 2px solid #eee; 
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between;
+    display: flex; justify-content: space-between; align-items: center; gap: 20px;
   }
-  /* 名前のサイズを維持しつつ1行に */
-  .item-info { 
-    font-size: 50px; 
-    font-weight: bold;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-  }
+  .item-name { font-size: 60px; font-weight: bold; flex: 1; word-break: break-all; line-height: 1.1; }
   .paid { background: #d4edda; }
   
-  /* 操作ボタンを横に配置 */
-  .item-btn { width: auto !important; min-width: 150px; padding: 10px 20px !important; margin: 0 !important; font-size: 32px !important; }
-
-  /* ダイアログ */
+  /* ダイアログ：動的に背景色を変更 */
   #dialogOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; }
-  #dialogBox { width: 90%; padding: 30px; border-radius: 20px; background: #fff; text-align: center; }
+  #dialogBox { width: 90%; padding: 40px; border-radius: 30px; text-align: center; border: 5px solid #333; }
+
+  /* 最下部エリア */
+  #dangerZone { margin-top: 100px; padding: 40px; border-top: 5px dashed #ccc; }
 </style>
 </head>
 
 <body>
 
-<!-- 上部固定：カメラと合計金額 -->
-<div id="scannerContainer">
-  <div style="background: #333; color: white; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 5px;">
-    合計: <span id="totalAmount">0</span>円
-  </div>
-  <div id="reader"></div>
+<div id="topInfo">
+  <div>合計: <span id="totalAmount">0</span>円</div>
+  <div id="clock" style="font-size: 40px;">00:00:00</div>
+</div>
+
+<div id="searchArea">
+  <h3>名簿検索</h3>
+  <input type="text" id="kanaSearch" placeholder="名前・ふりがな検索" oninput="updateList()">
   <div class="row-group">
-    <button onclick="startScanner()">スキャン開始</button>
-    <button class="btn-stop" onclick="stopScanner()">停止</button>
+    <select id="groupSearch" onchange="updateList()"><option value="">全組</option></select>
+    <select id="statusSearch" onchange="updateList()">
+      <option value="all">全員</option>
+      <option value="unpaid">未納</option>
+      <option value="paid">支払い済</option>
+    </select>
   </div>
+  <div id="candidateList"></div>
 </div>
 
-<div id="mainContent">
-  <div id="setupArea" style="display: flex; gap: 10px;">
-    <input type="file" id="file" accept=".xlsx" style="font-size: 20px;">
-    <button class="btn-reset" onclick="confirmReset()" style="width: 200px; font-size: 24px; background: #6c757d;">消去</button>
-  </div>
+<h3>スキャン</h3>
+<div class="row-group">
+  <button id="startBtn" onclick="startScanner()">カメラ起動</button>
+  <button class="btn-stop" id="stopBtn" onclick="stopScanner()">停止</button>
+</div>
+<div id="reader"></div>
 
-  <div id="searchArea">
-    <input type="text" id="kanaSearch" placeholder="名前検索" oninput="updateList()">
-    <div class="row-group">
-      <select id="groupSearch" onchange="updateList()"><option value="">全組</option></select>
-      <select id="statusSearch" onchange="updateList()">
-        <option value="all">全員</option>
-        <option value="unpaid">未納</option>
-        <option value="paid">完済</option>
-      </select>
-    </div>
-    <div id="candidateList"></div>
-  </div>
-
-  <div class="row-group" style="margin-top: 20px;">
-    <button class="btn-excel" onclick="exportLogs()">ログ出力</button>
-    <button class="btn-excel" onclick="exportRoster()">名簿出力</button>
-  </div>
+<div class="row-group" style="margin-top: 40px;">
+  <button class="btn-excel" onclick="exportLogs()">ログ出力</button>
+  <button class="btn-excel" onclick="exportRoster()">名簿出力</button>
 </div>
 
-<!-- 確認ダイアログ -->
+<!-- ダイアログ -->
 <div id="dialogOverlay">
   <div id="dialogBox">
-    <div id="dialogMessage" style="font-size: 40px; margin-bottom: 30px; white-space: pre-wrap; font-weight: bold;"></div>
+    <div id="dialogMessage" style="font-size: 55px; margin-bottom: 40px; white-space: pre-wrap; font-weight: bold;"></div>
     <div class="row-group">
-      <button onclick="dialogClick(false)" style="background:#ccc; color:black;">いいえ</button>
-      <button onclick="dialogClick(true)">はい</button>
+      <button onclick="dialogClick(false)" style="background:#666; color:white;">いいえ</button>
+      <button onclick="dialogClick(true)" id="dialogConfirmBtn">はい</button>
     </div>
   </div>
+</div>
+
+<!-- ファイル選択とリセットを最下部へ -->
+<div id="dangerZone">
+  <p style="font-size: 24px; color: #666;">※設定・データ管理</p>
+  <input type="file" id="file" accept=".xlsx">
+  <button class="btn-reset" onclick="confirmReset()" style="margin-top: 30px;">全データ消去リセット</button>
 </div>
 
 <script>
 let roster = [];
 let html5QrCode = null;
 let dialogResolver = null;
-let isProcessing = false; // 二重読み取り防止
+
+// 時計の更新
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').innerText = now.toLocaleTimeString();
+}
+setInterval(updateClock, 1000);
 
 window.onload = () => {
   const saved = localStorage.getItem('paymentRoster');
@@ -113,6 +115,10 @@ window.onload = () => {
     roster = JSON.parse(saved);
     rebuildGroupOptions();
     updateList();
+  }
+  // ページ更新時にスキャナを自動起動
+  if (localStorage.getItem('scannerActive') === 'true') {
+    startScanner();
   }
 };
 
@@ -123,6 +129,7 @@ document.getElementById('file').addEventListener('change', (e) => {
     roster = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
     rebuildGroupOptions();
     saveAndRefresh();
+    alert("名簿を読み込みました");
   };
   reader.readAsArrayBuffer(e.target.files[0]);
 });
@@ -131,7 +138,7 @@ function rebuildGroupOptions() {
   const groupSelect = document.getElementById('groupSearch');
   const groups = [...new Set(roster.map(r => r["組"]).filter(Boolean))];
   groupSelect.innerHTML = '<option value="">全組</option>';
-  groups.sort().forEach(g => {
+  groups.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g; opt.textContent = g + "組";
     groupSelect.appendChild(opt);
@@ -163,8 +170,8 @@ function updateList() {
       const div = document.createElement('div');
       div.className = 'list-item' + (isPaid ? " paid" : "");
       div.innerHTML = `
-        <div class="item-info">${p["組"] ? p["組"]+'-' : ''}${p["氏名"]}</div>
-        <button class="item-btn" onclick="confirmPay('${p["ID"]}', 'manual')">${isPaid ? '取消' : '支払'}</button>
+        <div class="item-name">${p["組"] ? p["組"]+'組 ' : ''}${p["氏名"]}</div>
+        <button onclick="confirmPay('${p["ID"]}', 'manual')" style="width:auto; padding:20px 40px; min-width: 180px; font-size: 40px;">${isPaid ? '取消' : '支払'}</button>
       `;
       container.appendChild(div);
     }
@@ -172,11 +179,23 @@ function updateList() {
   document.getElementById('totalAmount').innerText = total.toLocaleString();
 }
 
-function showDialog(msg) {
+function showDialog(msg, isCancelMode = false) {
+  const box = document.getElementById('dialogBox');
+  const btn = document.getElementById('dialogConfirmBtn');
+  
+  if (isCancelMode) {
+    box.style.backgroundColor = "#fff0f0"; // 薄い赤
+    btn.style.backgroundColor = "#dc3545";
+  } else {
+    box.style.backgroundColor = "#f0fff4"; // 薄い緑
+    btn.style.backgroundColor = "#28a745";
+  }
+
   document.getElementById('dialogMessage').innerText = msg;
   document.getElementById('dialogOverlay').style.display = 'flex';
   return new Promise(res => { dialogResolver = res; });
 }
+
 function dialogClick(val) {
   document.getElementById('dialogOverlay').style.display = 'none';
   dialogResolver(val);
@@ -186,11 +205,11 @@ async function confirmPay(id, type) {
   const p = roster.find(r => String(r["ID"]) === String(id));
   const isCurrentlyPaid = p["支払いステータス"] === "完了";
   const actionText = isCurrentlyPaid ? "取り消し" : "支払い";
-
-  if (await showDialog(`${p["氏名"]}さん\n${actionText}を確定？`)) {
+  
+  if (await showDialog(`${p["氏名"]}さん\n${actionText}を確定しますか？`, isCurrentlyPaid)) {
     if (!isCurrentlyPaid) {
       p["支払いステータス"] = "完了";
-      p["入力区分"] = type === "manual" ? "手動" : "カメラ";
+      p["入力区分"] = type === "manual" ? "手動入力" : "バーコード入力";
       const now = new Date();
       p["日付"] = now.toLocaleDateString();
       p["時刻"] = now.toTimeString().split(' ')[0];
@@ -203,45 +222,50 @@ async function confirmPay(id, type) {
 }
 
 async function confirmReset() {
-  if (await showDialog("全消去しますか？")) {
-    localStorage.clear(); roster = []; saveAndRefresh();
+  if (await showDialog("全てのデータを消去して初期化しますか？\n(この操作は戻せません)", true)) {
+    localStorage.clear(); roster = []; location.reload();
   }
 }
 
 async function startScanner() {
+  localStorage.setItem('scannerActive', 'true');
   if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-  const config = { fps: 15, qrbox: { width: 250, height: 120 } };
+  const config = { fps: 15, qrbox: { width: 450, height: 250 } };
   try {
-    await html5QrCode.start({ facingMode: "environment" }, config, async (decodedText) => {
-      if (isProcessing) return;
-      isProcessing = true;
-      const p = roster.find(r => String(r["ID"]) === String(decodedText));
-      if (p) {
-        await confirmPay(p["ID"], "barcode");
-      } else {
-        await showDialog(`未登録: ${decodedText}`);
-      }
-      isProcessing = false;
-    });
-  } catch (err) { alert("カメラエラー: " + err); }
+    await html5QrCode.start({ facingMode: "environment" }, config, async (txt) => { await onScanSuccess(txt); });
+  } catch (err) { console.error(err); }
 }
 
 async function stopScanner() {
+  localStorage.setItem('scannerActive', 'false');
   if (html5QrCode) { try { await html5QrCode.stop(); } catch(e) {} }
+}
+
+async function onScanSuccess(code) {
+  const p = roster.find(r => String(r["ID"]) === String(code));
+  if (p) {
+    await stopScanner();
+    await confirmPay(p["ID"], "barcode");
+    startScanner(); 
+  } else {
+    await stopScanner();
+    await showDialog(`未登録ID: ${code}`, true);
+    startScanner();
+  }
 }
 
 function exportRoster() {
   const ws = XLSX.utils.json_to_sheet(roster);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "名簿");
-  XLSX.writeFile(wb, "roster.xlsx");
+  XLSX.utils.book_append_sheet(wb, ws, "全名簿");
+  XLSX.writeFile(wb, "roster_export.xlsx");
 }
 function exportLogs() {
   const logs = roster.filter(r => r["支払いステータス"] === "完了");
   const ws = XLSX.utils.json_to_sheet(logs);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "ログ");
-  XLSX.writeFile(wb, "logs.xlsx");
+  XLSX.utils.book_append_sheet(wb, ws, "支払いログ");
+  XLSX.writeFile(wb, "payment_logs.xlsx");
 }
 </script>
 </body>
