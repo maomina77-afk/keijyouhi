@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>支払い管理システム 8.0 (統計・最適化版)</title>
+<title>支払い管理システム 9.0 (完全版)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <style>
@@ -10,7 +10,13 @@
   h3 { font-size: 50px; margin: 15px 0; border-left: 10px solid #007bff; padding-left: 20px; }
   input, select, button { font-size: 48px; padding: 25px; width: 100%; margin-top: 15px; border-radius: 15px; border: 2px solid #ccc; }
   
-  #topInfo { background: #333; color: white; padding: 20px; border-radius: 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+  /* ヘッダー：時計と金額を同じ大きさに */
+  #topInfo { 
+    background: #333; color: white; padding: 25px; border-radius: 20px; 
+    display: flex; justify-content: space-between; align-items: center; font-weight: bold; 
+  }
+  #totalAmount, #clock { font-size: 55px; }
+
   .row-group { display: flex; gap: 15px; margin-top: 15px; }
   .row-group > * { flex: 1; margin-top: 0; }
   button { background: #007bff; color: white; border: none; cursor: pointer; }
@@ -18,24 +24,28 @@
   .btn-reset { background: #6c757d; font-size: 32px; }
   .btn-excel { background: #28a745; }
 
-  /* スキャナー：全体を50%の大きさに調整 */
-  #reader { width: 50%; max-width: 500px; margin: 20px auto; background: #000; border-radius: 20px; overflow: hidden; min-height: 250px; }
-  
-  /* 統計テーブル */
-  #statsArea { margin-top: 30px; width: 100%; border-collapse: collapse; background: #fff; border-radius: 15px; overflow: hidden; font-size: 36px; }
-  #statsArea th, #statsArea td { border: 2px solid #ccc; padding: 15px; text-align: center; }
-  #statsArea th { background: #eee; }
+  /* スキャナー配置：左にボタン、右に画像 */
+  .scanner-container { display: flex; gap: 20px; align-items: stretch; margin-top: 20px; }
+  .scanner-btns { display: flex; flex-direction: column; gap: 15px; width: 30%; }
+  .scanner-btns button { flex: 1; margin-top: 0; padding: 10px; }
+  #reader { flex: 1; background: #000; border-radius: 20px; overflow: hidden; min-height: 300px; }
 
-  /* リスト */
-  #candidateList { border: 4px solid #333; border-radius: 20px; max-height: 600px; overflow-y: auto; background: #fff; margin-top: 15px; }
-  .list-item { padding: 10px 25px; border-bottom: 2px solid #eee; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-  .item-name { font-size: 60px; font-weight: bold; flex: 1; line-height: 1.1; }
+  /* 統計テーブル：文字を大きく、全表示 */
+  #statsArea { margin-top: 30px; width: 100%; border-collapse: collapse; background: #fff; border-radius: 15px; overflow: hidden; font-size: 42px; }
+  #statsArea th, #statsArea td { border: 2px solid #ccc; padding: 20px 10px; text-align: center; }
+  #statsArea th { background: #eee; font-size: 36px; }
+  .stat-all { background: #e9ecef; font-weight: bold; }
+
+  /* リスト：極限まで詰める */
+  #candidateList { border: 4px solid #333; border-radius: 20px; max-height: 500px; overflow-y: auto; background: #fff; margin-top: 15px; }
+  .list-item { padding: 5px 25px; border-bottom: 2px solid #eee; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+  .item-name { font-size: 55px; font-weight: bold; flex: 1; line-height: 1.1; }
   .paid { background: #d4edda; }
   
   /* ダイアログ */
   #dialogOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; }
   #dialogBox { width: 90%; padding: 40px; border-radius: 30px; text-align: center; border: 5px solid #333; }
-  #dangerZone { margin-top: 100px; padding: 40px; border-top: 5px dashed #ccc; }
+  #dangerZone { margin-top: 80px; padding: 40px; border-top: 5px dashed #ccc; }
 </style>
 </head>
 
@@ -43,14 +53,14 @@
 
 <div id="topInfo">
   <div>合計: <span id="totalAmount">0</span>円</div>
-  <div id="clock" style="font-size: 40px;">00:00:00</div>
+  <div id="clock">00:00:00</div>
 </div>
 
 <div id="searchArea">
   <h3>名簿検索</h3>
   <input type="text" id="kanaSearch" placeholder="名前・ふりがな検索" oninput="updateList()">
   <div class="row-group">
-    <select id="groupSearch" onchange="updateList()"><option value="">全組</option></select>
+    <select id="groupSearch" onchange="updateList()"><option value="">全組表示</option></select>
     <select id="statusSearch" onchange="updateList()">
       <option value="all">全員</option>
       <option value="unpaid">未納</option>
@@ -61,13 +71,14 @@
 </div>
 
 <h3>スキャン</h3>
-<div class="row-group">
-  <button id="startBtn" onclick="startScanner()">カメラ起動</button>
-  <button class="btn-stop" id="stopBtn" onclick="stopScanner()">停止</button>
+<div class="scanner-container">
+  <div class="scanner-btns">
+    <button id="startBtn" onclick="startScanner()">起動</button>
+    <button class="btn-stop" id="stopBtn" onclick="stopScanner()">停止</button>
+  </div>
+  <div id="reader"></div>
 </div>
-<div id="reader"></div>
 
-<!-- 統計テーブル -->
 <table id="statsArea">
   <thead>
     <tr>
@@ -78,21 +89,8 @@
       <th>未納率</th>
     </tr>
   </thead>
-  <tbody>
-    <tr>
-      <td>全体</td>
-      <td id="stat-total-count">-</td>
-      <td id="stat-total-paid">-</td>
-      <td id="stat-total-unpaid">-</td>
-      <td id="stat-total-rate">-</td>
-    </tr>
-    <tr id="groupRow" style="color: #007bff; font-weight: bold;">
-      <td id="stat-group-label">組</td>
-      <td id="stat-group-count">-</td>
-      <td id="stat-group-paid">-</td>
-      <td id="stat-group-unpaid">-</td>
-      <td id="stat-group-rate">-</td>
-    </tr>
+  <tbody id="statsBody">
+    <!-- JSで全組分を生成 -->
   </tbody>
 </table>
 
@@ -150,8 +148,8 @@ document.getElementById('file').addEventListener('change', (e) => {
 
 function rebuildGroupOptions() {
   const groupSelect = document.getElementById('groupSearch');
-  const groups = [...new Set(roster.map(r => r["組"]).filter(Boolean))];
-  groupSelect.innerHTML = '<option value="">全組</option>';
+  const groups = [...new Set(roster.map(r => r["組"]).filter(Boolean))].sort();
+  groupSelect.innerHTML = '<option value="">全組表示</option>';
   groups.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g; opt.textContent = g + "組";
@@ -165,8 +163,9 @@ function saveAndRefresh() {
 }
 
 function calculateStats() {
-  const groupFilter = document.getElementById('groupSearch').value;
-  
+  const statsBody = document.getElementById('statsBody');
+  statsBody.innerHTML = "";
+
   const getStats = (list) => {
     const total = list.length;
     const paid = list.filter(r => r["支払いステータス"] === "完了").length;
@@ -175,24 +174,23 @@ function calculateStats() {
     return { total, paid, unpaid, rate };
   };
 
-  const allStats = getStats(roster);
-  document.getElementById('stat-total-count').innerText = allStats.total;
-  document.getElementById('stat-total-paid').innerText = allStats.paid;
-  document.getElementById('stat-total-unpaid').innerText = allStats.unpaid;
-  document.getElementById('stat-total-rate').innerText = allStats.rate;
+  // 全体
+  const allS = getStats(roster);
+  appendStatRow(statsBody, "全体", allS, true);
 
-  if (groupFilter) {
-    const groupList = roster.filter(r => String(r["組"]) === groupFilter);
-    const gStats = getStats(groupList);
-    document.getElementById('stat-group-label').innerText = groupFilter + "組";
-    document.getElementById('stat-group-count').innerText = gStats.total;
-    document.getElementById('stat-group-paid').innerText = gStats.paid;
-    document.getElementById('stat-group-unpaid').innerText = gStats.unpaid;
-    document.getElementById('stat-group-rate').innerText = gStats.rate;
-    document.getElementById('groupRow').style.display = 'table-row';
-  } else {
-    document.getElementById('groupRow').style.display = 'none';
-  }
+  // 各組
+  const groups = [...new Set(roster.map(r => r["組"]).filter(Boolean))].sort();
+  groups.forEach(g => {
+    const gList = roster.filter(r => r["組"] === g);
+    appendStatRow(statsBody, g + "組", getStats(gList), false);
+  });
+}
+
+function appendStatRow(parent, label, s, isAll) {
+  const tr = document.createElement('tr');
+  if(isAll) tr.className = "stat-all";
+  tr.innerHTML = `<td>${label}</td><td>${s.total}</td><td>${s.paid}</td><td>${s.unpaid}</td><td>${s.rate}</td>`;
+  parent.appendChild(tr);
 }
 
 function updateList() {
@@ -215,7 +213,7 @@ function updateList() {
       const div = document.createElement('div');
       div.className = 'list-item' + (isPaid ? " paid" : "");
       div.innerHTML = `<div class="item-name">${p["組"] ? p["組"]+'組 ' : ''}${p["氏名"]}</div>
-        <button onclick="confirmPay('${p["ID"]}', 'manual')" style="width:auto; padding:20px 40px; min-width: 180px; font-size: 40px;">${isPaid ? '取消' : '支払'}</button>`;
+        <button onclick="confirmPay('${p["ID"]}', 'manual')" style="width:auto; padding:15px 30px; min-width: 180px; font-size: 40px;">${isPaid ? '取消' : '支払'}</button>`;
       container.appendChild(div);
     }
   });
@@ -257,14 +255,13 @@ async function confirmPay(id, type) {
 }
 
 async function confirmReset() {
-  if (await showDialog("全てのデータを消去しますか？", true)) { localStorage.clear(); roster = []; location.reload(); }
+  if (await showDialog("全消去しますか？", true)) { localStorage.clear(); roster = []; location.reload(); }
 }
 
 async function startScanner() {
   localStorage.setItem('scannerActive', 'true');
   if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-  // 50%のスキャナーサイズに合わせてqrbox(読み取り枠)も小さめに設定
-  const config = { fps: 15, qrbox: { width: 250, height: 150 } };
+  const config = { fps: 15, qrbox: { width: 300, height: 200 } };
   try {
     await html5QrCode.start({ facingMode: "environment" }, config, async (txt) => { await onScanSuccess(txt); });
   } catch (err) { console.error(err); }
