@@ -2,12 +2,11 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>支払い管理システム 5.0 (Html5QrCode版)</title>
-<!-- ライブラリの読み込み -->
+<title>支払い管理システム 6.0 (最適化版)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <style>
-  /* --- 5.0版の巨大なデザインを継承 --- */
+  /* 全体デザイン */
   body { font-family: sans-serif; font-size: 48px; padding: 20px; margin: 0; background: #f0f0f0; }
   h3 { font-size: 54px; margin: 20px 0; border-left: 10px solid #007bff; padding-left: 20px; }
   input, select, button { font-size: 48px; padding: 25px; width: 100%; margin-top: 15px; border-radius: 15px; border: 2px solid #ccc; }
@@ -20,25 +19,26 @@
   .btn-reset { background: #6c757d; }
   .btn-excel { background: #28a745; }
 
-  /* スキャナー表示エリア */
-  #reader { width: 100%; max-width: 800px; margin: 20px auto; background: #000; border-radius: 20px; overflow: hidden; min-height: 400px; }
+  /* スキャナー表示エリア（高さを半分程度に調整） */
+  #reader { width: 100%; max-width: 800px; margin: 20px auto; background: #000; border-radius: 20px; overflow: hidden; min-height: 250px; }
   
-  /* リスト表示の改善 (5.0版) */
+  /* リスト表示 */
   #candidateList { border: 4px solid #333; border-radius: 20px; max-height: 800px; overflow-y: auto; background: #fff; margin-top: 20px; }
   .list-item { 
-    padding: 40px 30px; 
+    padding: 30px 25px; 
     border-bottom: 3px solid #eee; 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
     gap: 20px;
   }
+  /* 名前のサイズを前回の4分の3 (60px) に調整 */
   .item-name { 
-    font-size: 80px; 
+    font-size: 60px; 
     font-weight: bold;
     flex: 1;
     word-break: break-all;
-    line-height: 1.1;
+    line-height: 1.2;
   }
   .paid { background: #d4edda; }
   
@@ -160,7 +160,7 @@ function updateList() {
       div.className = 'list-item' + (isPaid ? " paid" : "");
       div.innerHTML = `
         <div class="item-name">${p["組"] ? p["組"]+'組 ' : ''}${p["氏名"]}</div>
-        <button onclick="confirmPay('${p["ID"]}', 'manual')" style="width:auto; padding:30px 50px; min-width: 200px;">${isPaid ? '取消' : '支払'}</button>
+        <button onclick="confirmPay('${p["ID"]}', 'manual')" style="width:auto; padding:25px 40px; min-width: 180px; font-size: 40px;">${isPaid ? '取消' : '支払'}</button>
       `;
       container.appendChild(div);
     }
@@ -209,19 +209,18 @@ async function confirmReset() {
   }
 }
 
-// --- Html5QrCode スキャナー処理 ---
 async function startScanner() {
   if (!html5QrCode) {
     html5QrCode = new Html5Qrcode("reader");
   }
-  const config = { fps: 10, qrbox: { width: 400, height: 200 } };
+  // カメラの読み取り枠のサイズを調整（高さ250px程度に合わせて）
+  const config = { fps: 10, qrbox: { width: 400, height: 180 } };
   
   try {
     await html5QrCode.start(
       { facingMode: "environment" }, 
       config, 
       async (decodedText) => {
-        // 読み取り成功時
         await onScanSuccess(decodedText);
       }
     );
@@ -232,22 +231,19 @@ async function startScanner() {
 
 async function stopScanner() {
   if (html5QrCode) {
-    await html5QrCode.stop();
+    try { await html5QrCode.stop(); } catch(e) {}
   }
 }
 
 async function onScanSuccess(code) {
-  // スキャンが重ならないよう一時停止的な処理
   const p = roster.find(r => String(r["ID"]) === String(code));
   if (p) {
-    // 読み取れたら一旦カメラを止めて確認ダイアログへ
     await stopScanner();
     await confirmPay(p["ID"], "barcode");
-    // 確認後、自動で再開したい場合はここに追加
     startScanner(); 
   } else {
     await stopScanner();
-    await showDialog(`名簿にないIDです\n読取値: ${code}`);
+    await showDialog(`未登録IDです\n読取値: ${code}`);
     startScanner();
   }
 }
