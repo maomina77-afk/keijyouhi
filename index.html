@@ -230,7 +230,7 @@ async function confirmReset() {
 async function startScanner() {
   localStorage.setItem('scannerActive', 'true');
   if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-  const config = { fps: 15, qrbox: { width: 450, height: 250 } };
+  const config = { fps: 15, qrbox: { width: 225, height: 125 } };
   try {
     await html5QrCode.start({ facingMode: "environment" }, config, async (txt) => { await onScanSuccess(txt); });
   } catch (err) { console.error(err); }
