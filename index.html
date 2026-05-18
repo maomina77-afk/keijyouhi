@@ -1,303 +1,118 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>支払い管理システム 9.0 (完全版)</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode"></script>
-<style>
-  body { font-family: sans-serif; font-size: 48px; padding: 20px; margin: 0; background: #f0f0f0; }
-  h3 { font-size: 50px; margin: 15px 0; border-left: 10px solid #007bff; padding-left: 20px; }
-  input, select, button { font-size: 48px; padding: 25px; width: 100%; margin-top: 15px; border-radius: 15px; border: 2px solid #ccc; }
-  
-  /* ヘッダー：時計と金額を同じ大きさに */
-  #topInfo { 
-    background: #333; color: white; padding: 25px; border-radius: 20px; 
-    display: flex; justify-content: space-between; align-items: center; font-weight: bold; 
-  }
-  #totalAmount, #clock { font-size: 55px; }
-
-  .row-group { display: flex; gap: 15px; margin-top: 15px; }
-  .row-group > * { flex: 1; margin-top: 0; }
-  button { background: #007bff; color: white; border: none; cursor: pointer; }
-  .btn-stop { background: #dc3545; }
-  .btn-reset { background: #6c757d; font-size: 32px; }
-  .btn-excel { background: #28a745; }
-
-  /* スキャナー配置：左にボタン、右に画像 */
-  .scanner-container { display: flex; gap: 20px; align-items: stretch; margin-top: 20px; }
-  .scanner-btns { display: flex; flex-direction: column; gap: 15px; width: 30%; }
-  .scanner-btns button { flex: 1; margin-top: 0; padding: 10px; }
-  #reader { flex: 1; background: #000; border-radius: 20px; overflow: hidden; min-height: 300px; }
-
-  /* 統計テーブル：文字を大きく、全表示 */
-  #statsArea { margin-top: 30px; width: 100%; border-collapse: collapse; background: #fff; border-radius: 15px; overflow: hidden; font-size: 42px; }
-  #statsArea th, #statsArea td { border: 2px solid #ccc; padding: 20px 10px; text-align: center; }
-  #statsArea th { background: #eee; font-size: 36px; }
-  .stat-all { background: #e9ecef; font-weight: bold; }
-
-  /* リスト：極限まで詰める */
-  #candidateList { border: 4px solid #333; border-radius: 20px; max-height: 500px; overflow-y: auto; background: #fff; margin-top: 15px; }
-  .list-item { padding: 5px 25px; border-bottom: 2px solid #eee; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-  .item-name { font-size: 55px; font-weight: bold; flex: 1; line-height: 1.1; }
-  .paid { background: #d4edda; }
-  
-  /* ダイアログ */
-  #dialogOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; }
-  #dialogBox { width: 90%; padding: 40px; border-radius: 30px; text-align: center; border: 5px solid #333; }
-  #dangerZone { margin-top: 80px; padding: 40px; border-top: 5px dashed #ccc; }
-</style>
+  <meta charset="UTF-8">
+  <title>カメラズーム対応テスト</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; }
+    video { width: 100%; max-width: 480px; background: #000; }
+    .hidden { display: none; }
+    .log { white-space: pre-wrap; font-size: 12px; background:#f5f5f5; padding:8px; border-radius:4px; }
+  </style>
 </head>
-
 <body>
+  <h1>カメラズーム対応テスト</h1>
+  <p>このページで <code>track.applyConstraints({ advanced: [{ zoom: ... }] })</code> が使えるか確認します。</p>
 
-<div id="topInfo">
-  <div>合計: <span id="totalAmount">0</span>円</div>
-  <div id="clock">00:00:00</div>
-</div>
+  <button id="startBtn">カメラ起動</button>
+  <p id="status">未開始</p>
 
-<div id="searchArea">
-  <h3>名簿検索</h3>
-  <input type="text" id="kanaSearch" placeholder="名前・ふりがな検索" oninput="updateList()">
-  <div class="row-group">
-    <select id="groupSearch" onchange="updateList()"><option value="">全組表示</option></select>
-    <select id="statusSearch" onchange="updateList()">
-      <option value="all">全員</option>
-      <option value="unpaid">未納</option>
-      <option value="paid">支払い済</option>
-    </select>
+  <video id="video" autoplay playsinline></video>
+
+  <div id="zoomContainer" class="hidden">
+    <label for="zoomRange">ズーム: <span id="zoomValue">1.0</span>x</label><br>
+    <input id="zoomRange" type="range" min="1" max="5" step="0.1">
   </div>
-  <div id="candidateList"></div>
-</div>
 
-<h3>スキャン</h3>
-<div class="scanner-container">
-  <div class="scanner-btns">
-    <button id="startBtn" onclick="startScanner()">起動</button>
-    <button class="btn-stop" id="stopBtn" onclick="stopScanner()">停止</button>
-  </div>
-  <div id="reader"></div>
-</div>
+  <h2>結果 / ログ</h2>
+  <div id="log" class="log"></div>
 
-<table id="statsArea">
-  <thead>
-    <tr>
-      <th>区分</th>
-      <th>総数</th>
-      <th>払済</th>
-      <th>未納</th>
-      <th>未納率</th>
-    </tr>
-  </thead>
-  <tbody id="statsBody">
-    <!-- JSで全組分を生成 -->
-  </tbody>
-</table>
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const statusEl = document.getElementById('status');
+    const video = document.getElementById('video');
+    const logEl = document.getElementById('log');
+    const zoomContainer = document.getElementById('zoomContainer');
+    const zoomRange = document.getElementById('zoomRange');
+    const zoomValue = document.getElementById('zoomValue');
 
-<div class="row-group" style="margin-top: 40px;">
-  <button class="btn-excel" onclick="exportLogs()">ログ出力</button>
-  <button class="btn-excel" onclick="exportRoster()">名簿出力</button>
-</div>
+    let track = null;
+    let capabilities = null;
 
-<div id="dialogOverlay">
-  <div id="dialogBox">
-    <div id="dialogMessage" style="font-size: 55px; margin-bottom: 40px; white-space: pre-wrap; font-weight: bold;"></div>
-    <div class="row-group">
-      <button onclick="dialogClick(false)" style="background:#666; color:white;">いいえ</button>
-      <button onclick="dialogClick(true)" id="dialogConfirmBtn">はい</button>
-    </div>
-  </div>
-</div>
-
-<div id="dangerZone">
-  <input type="file" id="file" accept=".xlsx">
-  <button class="btn-reset" onclick="confirmReset()" style="margin-top: 30px;">全データ消去リセット</button>
-</div>
-
-<script>
-let roster = [];
-let html5QrCode = null;
-let dialogResolver = null;
-
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clock').innerText = now.toLocaleTimeString();
-}
-setInterval(updateClock, 1000);
-
-window.onload = () => {
-  const saved = localStorage.getItem('paymentRoster');
-  if (saved) {
-    roster = JSON.parse(saved);
-    rebuildGroupOptions();
-    updateList();
-  }
-  if (localStorage.getItem('scannerActive') === 'true') startScanner();
-};
-
-document.getElementById('file').addEventListener('change', (e) => {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
-    roster = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-    rebuildGroupOptions();
-    saveAndRefresh();
-  };
-  reader.readAsArrayBuffer(e.target.files[0]);
-});
-
-function rebuildGroupOptions() {
-  const groupSelect = document.getElementById('groupSearch');
-  const groups = [...new Set(roster.map(r => r["組"]).filter(Boolean))].sort();
-  groupSelect.innerHTML = '<option value="">全組表示</option>';
-  groups.forEach(g => {
-    const opt = document.createElement('option');
-    opt.value = g; opt.textContent = g + "組";
-    groupSelect.appendChild(opt);
-  });
-}
-
-function saveAndRefresh() {
-  localStorage.setItem('paymentRoster', JSON.stringify(roster));
-  updateList();
-}
-
-function calculateStats() {
-  const statsBody = document.getElementById('statsBody');
-  statsBody.innerHTML = "";
-
-  const getStats = (list) => {
-    const total = list.length;
-    const paid = list.filter(r => r["支払いステータス"] === "完了").length;
-    const unpaid = total - paid;
-    const rate = total > 0 ? ((unpaid / total) * 100).toFixed(1) + "%" : "0%";
-    return { total, paid, unpaid, rate };
-  };
-
-  // 全体
-  const allS = getStats(roster);
-  appendStatRow(statsBody, "全体", allS, true);
-
-  // 各組
-  const groups = [...new Set(roster.map(r => r["組"]).filter(Boolean))].sort();
-  groups.forEach(g => {
-    const gList = roster.filter(r => r["組"] === g);
-    appendStatRow(statsBody, g + "組", getStats(gList), false);
-  });
-}
-
-function appendStatRow(parent, label, s, isAll) {
-  const tr = document.createElement('tr');
-  if(isAll) tr.className = "stat-all";
-  tr.innerHTML = `<td>${label}</td><td>${s.total}</td><td>${s.paid}</td><td>${s.unpaid}</td><td>${s.rate}</td>`;
-  parent.appendChild(tr);
-}
-
-function updateList() {
-  const search = document.getElementById('kanaSearch').value;
-  const groupFilter = document.getElementById('groupSearch').value;
-  const statusFilter = document.getElementById('statusSearch').value;
-  const container = document.getElementById('candidateList');
-  container.innerHTML = "";
-  let totalAmount = 0;
-
-  roster.forEach(p => {
-    const isPaid = p["支払いステータス"] === "完了";
-    if (isPaid) totalAmount += Number(p["金額"] || 0);
-
-    const matchSearch = !search || (p["氏名"]+(p["ふりがな"]||"")).includes(search);
-    const matchGroup = !groupFilter || String(p["組"]) === groupFilter;
-    const matchStatus = statusFilter === "all" || (statusFilter === "paid" ? isPaid : !isPaid);
-
-    if (matchSearch && matchGroup && matchStatus) {
-      const div = document.createElement('div');
-      div.className = 'list-item' + (isPaid ? " paid" : "");
-      div.innerHTML = `<div class="item-name">${p["組"] ? p["組"]+'組 ' : ''}${p["氏名"]}</div>
-        <button onclick="confirmPay('${p["ID"]}', 'manual')" style="width:auto; padding:15px 30px; min-width: 180px; font-size: 40px;">${isPaid ? '取消' : '支払'}</button>`;
-      container.appendChild(div);
+    function log(msg) {
+      console.log(msg);
+      logEl.textContent += msg + "\n";
     }
-  });
-  document.getElementById('totalAmount').innerText = totalAmount.toLocaleString();
-  calculateStats();
-}
 
-function showDialog(msg, isCancelMode = false) {
-  const box = document.getElementById('dialogBox');
-  const btn = document.getElementById('dialogConfirmBtn');
-  box.style.backgroundColor = isCancelMode ? "#fff0f0" : "#f0fff4";
-  btn.style.backgroundColor = isCancelMode ? "#dc3545" : "#28a745";
-  document.getElementById('dialogMessage').innerText = msg;
-  document.getElementById('dialogOverlay').style.display = 'flex';
-  return new Promise(res => { dialogResolver = res; });
-}
+    async function startCamera() {
+      try {
+        statusEl.textContent = 'カメラ起動中…';
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        video.srcObject = stream;
 
-function dialogClick(val) {
-  document.getElementById('dialogOverlay').style.display = 'none';
-  dialogResolver(val);
-}
+        track = stream.getVideoTracks()[0];
+        log('取得したトラック: ' + track.label);
 
-async function confirmPay(id, type) {
-  const p = roster.find(r => String(r["ID"]) === String(id));
-  const isCurrentlyPaid = p["支払いステータス"] === "完了";
-  if (await showDialog(`${p["氏名"]}さん\n${isCurrentlyPaid ? "取消" : "支払"}を確定しますか？`, isCurrentlyPaid)) {
-    if (!isCurrentlyPaid) {
-      p["支払いステータス"] = "完了";
-      p["入力区分"] = type === "manual" ? "手動入力" : "バーコード入力";
-      const now = new Date();
-      p["日付"] = now.toLocaleDateString();
-      p["時刻"] = now.toTimeString().split(' ')[0];
-    } else {
-      p["支払いステータス"] = "";
-      delete p["入力区分"]; delete p["日付"]; delete p["時刻"];
+        if (!track.getCapabilities) {
+          statusEl.textContent = 'このブラウザは getCapabilities() 非対応です。';
+          log('getCapabilities() がありません。zoom 対応は判定できません。');
+          return;
+        }
+
+        capabilities = track.getCapabilities();
+        log('capabilities: ' + JSON.stringify(capabilities, null, 2));
+
+        if (!('zoom' in capabilities)) {
+          statusEl.textContent = 'zoom capability がありません（この端末ではズーム不可の可能性が高い）。';
+          log('capabilities.zoom が存在しません。');
+          return;
+        }
+
+        const { min, max } = capabilities.zoom;
+        statusEl.textContent = `zoom 対応あり: min=${min}, max=${max}`;
+        log(`zoom capability: min=${min}, max=${max}`);
+
+        // スライダーを capability に合わせる
+        zoomRange.min = min;
+        zoomRange.max = max;
+        zoomRange.step = 0.1;
+        zoomRange.value = min;
+        zoomValue.textContent = min.toFixed(1);
+        zoomContainer.classList.remove('hidden');
+
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = 'カメラ起動に失敗しました。';
+        log('エラー: ' + err.name + ' - ' + err.message);
+      }
     }
-    saveAndRefresh();
-  }
-}
 
-async function confirmReset() {
-  if (await showDialog("全消去しますか？", true)) { localStorage.clear(); roster = []; location.reload(); }
-}
+    async function applyZoom(value) {
+      if (!track || !capabilities || !('zoom' in capabilities)) {
+        log('zoom 未対応のため applyConstraints はスキップしました。');
+        return;
+      }
+      try {
+        await track.applyConstraints({
+          advanced: [{ zoom: value }]
+        });
+        log(`applyConstraints 成功: zoom=${value}`);
+      } catch (err) {
+        log('applyConstraints エラー: ' + err.name + ' - ' + err.message);
+      }
+    }
 
-async function startScanner() {
-  localStorage.setItem('scannerActive', 'true');
-  if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-  const config = { fps: 15, qrbox: { width: 300, height: 200 } };
-  try {
-    await html5QrCode.start({ facingMode: "environment" }, config, async (txt) => { await onScanSuccess(txt); });
-  } catch (err) { console.error(err); }
-}
+    startBtn.addEventListener('click', () => {
+      startCamera();
+    });
 
-async function stopScanner() {
-  localStorage.setItem('scannerActive', 'false');
-  if (html5QrCode) { try { await html5QrCode.stop(); } catch(e) {} }
-}
-
-async function onScanSuccess(code) {
-  const p = roster.find(r => String(r["ID"]) === String(code));
-  if (p) {
-    await stopScanner();
-    await confirmPay(p["ID"], "barcode");
-    startScanner(); 
-  } else {
-    await stopScanner();
-    await showDialog(`未登録ID: ${code}`, true);
-    startScanner();
-  }
-}
-
-function exportRoster() {
-  const ws = XLSX.utils.json_to_sheet(roster);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "全名簿");
-  XLSX.writeFile(wb, "roster.xlsx");
-}
-function exportLogs() {
-  const logs = roster.filter(r => r["支払いステータス"] === "完了");
-  const ws = XLSX.utils.json_to_sheet(logs);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "支払いログ");
-  XLSX.writeFile(wb, "logs.xlsx");
-}
-</script>
+    zoomRange.addEventListener('input', (e) => {
+      const v = Number(e.target.value);
+      zoomValue.textContent = v.toFixed(1);
+      applyZoom(v);
+    });
+  </script>
 </body>
 </html>
