@@ -49,7 +49,7 @@
       pointer-events:none;
     }
 
-    .log { white-space:pre-wrap; font-size:12px; background:#fff; padding:8px; border-radius:8px; max-height:220px; overflow:auto; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+    .uiLog { white-space:pre-wrap; font-size:12px; background:#fff; padding:8px; border-radius:8px; max-height:220px; overflow:auto; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
     .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     label { font-size:13px; }
     input[type=range] { width:200px; }
@@ -133,15 +133,15 @@
   </div>
 
   <h3 style="margin-top:14px">ログ</h3>
-  <div id="log" class="log"></div>
+  <div id="uiLog" class="uiLog"></div>
 
 <script>
 /* ---------- ユーティリティ ---------- */
-const logEl = document.getElementById('log');
-function log(msg){
+const uiLogEl = document.getElementById('uiLog');
+function uiLog(msg){
   const t = new Date().toLocaleTimeString();
-  logEl.textContent += `[${t}] ${msg}\n`;
-  logEl.scrollTop = logEl.scrollHeight;
+  uiLogEl.textContent += `[${t}] ${msg}\n`;
+  uiLogEl.scrollTop = uiLogEl.scrollHeight;
 }
 
 /* ---------- 状態と設定の復元 ---------- */
@@ -162,8 +162,8 @@ let settings = Object.assign({}, defaultSettings);
 try {
   const s = localStorage.getItem('cameraSettings');
   if (s) settings = Object.assign(settings, JSON.parse(s));
-  log('設定を localStorage から復元しました。');
-} catch(e){ log('設定復元エラー: ' + e.message); }
+  uiLog('設定を localStorage から復元しました。');
+} catch(e){ uiLog('設定復元エラー: ' + e.message); }
 
 /* ---------- DOM 要素 ---------- */
 const readerContainer = document.getElementById('reader__container');
@@ -198,8 +198,8 @@ apiKeyInput.value = settings.apiKey;
 function saveSettings(){
   try {
     localStorage.setItem('cameraSettings', JSON.stringify(settings));
-    log('設定を保存しました。');
-  } catch(e){ log('設定保存エラー: ' + e.message); }
+    uiLog('設定を保存しました。');
+  } catch(e){ uiLog('設定保存エラー: ' + e.message); }
 }
 
 /* コントロールの有効/無効 */
@@ -215,7 +215,7 @@ function enableControls(flag){
 /* ---------- html5-qrcode 起動（柔軟な facingMode 試行） ---------- */
 // 置き換え用 startScanner（index.html の既存関数と差し替え）
 async function startScanner() {
-  if (html5QrCode) { log('既に起動済み'); return; }
+  if (html5QrCode) { uiLog('既に起動済み'); return; }
 
   // html5-qrcode インスタンス作成
   html5QrCode = new Html5Qrcode("reader__container", { verbose: false });
@@ -225,7 +225,7 @@ async function startScanner() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices.filter(d => d.kind === 'videoinput');
-    log('検出したカメラ数: ' + videoDevices.length);
+    uiLog('検出したカメラ数: ' + videoDevices.length);
     // 簡易に "back" や "rear" を含むラベルを優先
     for (const d of videoDevices) {
       const label = (d.label || '').toLowerCase();
@@ -235,9 +235,9 @@ async function startScanner() {
       }
     }
     if (!envDeviceId && videoDevices.length) envDeviceId = videoDevices[0].deviceId;
-    log('選択 deviceId: ' + (envDeviceId || 'none'));
+    uiLog('選択 deviceId: ' + (envDeviceId || 'none'));
   } catch (e) {
-    log('enumerateDevices エラー: ' + e.message);
+    uiLog('enumerateDevices エラー: ' + e.message);
   }
 
   // 試行する constraints の候補（deviceId があれば優先）
@@ -251,26 +251,26 @@ async function startScanner() {
   let started = false;
   for (const c of candidates) {
     try {
-      log('start 試行 constraints: ' + JSON.stringify(c));
+      uiLog('start 試行 constraints: ' + JSON.stringify(c));
       await html5QrCode.start(
         c,
         { fps: 12, qrbox: { width: 300, height: 300 } },
         (decodedText, decodedResult) => {
-          log('読み取り成功: ' + decodedText);
+          uiLog('読み取り成功: ' + decodedText);
         }
       );
       started = true;
-      log('html5-qrcode 起動成功 (constraints: ' + JSON.stringify(c) + ')');
+      uiLog('html5-qrcode 起動成功 (constraints: ' + JSON.stringify(c) + ')');
       break;
     } catch (err) {
-      log('start 失敗: ' + (err && err.message ? err.message : err));
+      uiLog('start 失敗: ' + (err && err.message ? err.message : err));
       // Overconstrained や NotAllowed などの詳細をコンソールにも出す
       console.error(err);
     }
   }
 
   if (!started) {
-    log('全ての候補で起動失敗しました。ブラウザ権限・HTTPS・他アプリの占有を確認してください。');
+    uiLog('全ての候補で起動失敗しました。ブラウザ権限・HTTPS・他アプリの占有を確認してください。');
     html5QrCode = null;
     return;
   }
@@ -279,28 +279,28 @@ async function startScanner() {
   try {
     const video = await waitForVideoElement(readerContainer, 8000);
     if (!video) throw new Error('video 要素が見つかりません');
-    log('video 要素検出: ' + (video.srcObject ? 'srcObjectあり' : 'srcObjectなし'));
+    uiLog('video 要素検出: ' + (video.srcObject ? 'srcObjectあり' : 'srcObjectなし'));
     const stream = video.srcObject;
     if (!stream) throw new Error('video.srcObject が null');
     currentTrack = stream.getVideoTracks()[0];
-    log('取得トラック: ' + (currentTrack.label || 'unknown'));
+    uiLog('取得トラック: ' + (currentTrack.label || 'unknown'));
     // ここで capabilities を取得して UI を初期化する既存処理を呼ぶ
     if (typeof currentTrack.getCapabilities === 'function') {
       capabilities = currentTrack.getCapabilities();
-      log('capabilities: ' + JSON.stringify({
+      uiLog('capabilities: ' + JSON.stringify({
         zoom: capabilities.zoom,
         focusDistance: capabilities.focusDistance,
         exposureCompensation: capabilities.exposureCompensation,
         torch: capabilities.torch
       }, null, 2));
     } else {
-      log('getCapabilities 非対応');
+      uiLog('getCapabilities 非対応');
     }
     // 必要なら初期設定を適用（既存の applyZoom 等を呼ぶ）
     if (capabilities && capabilities.zoom) await applyZoom(settings.zoom || capabilities.zoom.min || 1);
     enableControls(true);
   } catch (e) {
-    log('video 取得エラー: ' + e.message);
+    uiLog('video 取得エラー: ' + e.message);
     try { await html5QrCode.stop(); } catch(e){}
     html5QrCode = null;
   }
@@ -347,7 +347,7 @@ async function stopScanner(){
       await html5QrCode.stop();
       html5QrCode.clear();
       html5QrCode = null;
-      log('停止しました。');
+      uiLog('停止しました。');
     }
     if (currentTrack) {
       try { currentTrack.stop(); } catch(e){}
@@ -357,7 +357,7 @@ async function stopScanner(){
     stopBtn.disabled = true;
     startBtn.disabled = false;
   } catch(e){
-    log('停止エラー: ' + e.message);
+    uiLog('停止エラー: ' + e.message);
   }
 }
 
@@ -365,7 +365,7 @@ async function stopScanner(){
 let zoomApplyTimer = null;
 async function applyZoom(value){
   if (!currentTrack || !capabilities || !capabilities.zoom) {
-    log('applyZoom: 未対応またはトラック未取得');
+    uiLog('applyZoom: 未対応またはトラック未取得');
     return;
   }
   try {
@@ -377,19 +377,19 @@ async function applyZoom(value){
         settings.zoom = value;
         zoomLabel.textContent = Number(value).toFixed(1);
         saveSettings();
-        log('applyConstraints 成功: zoom=' + value);
+        uiLog('applyConstraints 成功: zoom=' + value);
       } catch (err) {
-        log('applyZoom エラー: ' + (err && err.message ? err.message : err));
+        uiLog('applyZoom エラー: ' + (err && err.message ? err.message : err));
       }
     }, 60);
   } catch (err) {
-    log('applyZoom 例外: ' + err.message);
+    uiLog('applyZoom 例外: ' + err.message);
   }
 }
 
 async function applyFocus(value){
   if (!currentTrack || !capabilities || !capabilities.focusDistance) {
-    log('applyFocus: 未対応');
+    uiLog('applyFocus: 未対応');
     return;
   }
   try {
@@ -400,15 +400,15 @@ async function applyFocus(value){
     settings.focusDistance = value;
     focusLabel.textContent = value;
     saveSettings();
-    log('applyConstraints 成功: focusDistance=' + value);
+    uiLog('applyConstraints 成功: focusDistance=' + value);
   } catch (err) {
-    log('applyFocus エラー: ' + (err && err.message ? err.message : err));
+    uiLog('applyFocus エラー: ' + (err && err.message ? err.message : err));
   }
 }
 
 async function applyExposure(value){
   if (!currentTrack || !capabilities || !capabilities.exposureCompensation) {
-    log('applyExposure: 未対応');
+    uiLog('applyExposure: 未対応');
     return;
   }
   try {
@@ -419,15 +419,15 @@ async function applyExposure(value){
     settings.exposureCompensation = value;
     exposureLabel.textContent = value;
     saveSettings();
-    log('applyConstraints 成功: exposureCompensation=' + value);
+    uiLog('applyConstraints 成功: exposureCompensation=' + value);
   } catch (err) {
-    log('applyExposure エラー: ' + (err && err.message ? err.message : err));
+    uiLog('applyExposure エラー: ' + (err && err.message ? err.message : err));
   }
 }
 
 async function applyTorch(on){
   if (!currentTrack || !capabilities || !capabilities.torch) {
-    log('applyTorch: 未対応');
+    uiLog('applyTorch: 未対応');
     return;
   }
   try {
@@ -435,9 +435,9 @@ async function applyTorch(on){
     settings.torch = !!on;
     torchBtn.textContent = settings.torch ? 'Torch: ON' : 'Torch: OFF';
     saveSettings();
-    log('torch 設定成功: ' + settings.torch);
+    uiLog('torch 設定成功: ' + settings.torch);
   } catch (err) {
-    log('applyTorch エラー: ' + (err && err.message ? err.message : err));
+    uiLog('applyTorch エラー: ' + (err && err.message ? err.message : err));
   }
 }
 
@@ -452,16 +452,16 @@ function applyMode(mode){
         if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) adv.push({ focusMode: 'continuous' });
         if (capabilities.exposureMode && capabilities.exposureMode.includes('continuous')) adv.push({ exposureMode: 'continuous' });
         if (adv.length) await currentTrack.applyConstraints({ advanced: adv });
-        log('Auto モード適用');
+        uiLog('Auto モード適用');
       } else {
         const adv = [];
         if (capabilities.focusMode && capabilities.focusMode.includes('manual')) adv.push({ focusMode: 'manual' });
         if (capabilities.exposureMode && capabilities.exposureMode.includes('manual')) adv.push({ exposureMode: 'manual' });
         if (adv.length) await currentTrack.applyConstraints({ advanced: adv });
-        log('Manual モード適用（可能な範囲で）');
+        uiLog('Manual モード適用（可能な範囲で）');
       }
     } catch(e){
-      log('applyMode エラー: ' + e.message);
+      uiLog('applyMode エラー: ' + e.message);
     }
   })();
 }
@@ -555,13 +555,13 @@ scannerScale.addEventListener('input', (e) => {
 
 saveScannerScale.addEventListener('click', () => {
   saveSettings();
-  log('スキャナー縦幅設定を保存しました。');
+  uiLog('スキャナー縦幅設定を保存しました。');
 });
 
 saveApiKey.addEventListener('click', () => {
   settings.apiKey = apiKeyInput.value.trim();
   saveSettings();
-  log('APIキーを保存しました。');
+  uiLog('APIキーを保存しました。');
 });
 
 /* ページを閉じる前に停止して設定保存 */
@@ -570,7 +570,7 @@ window.addEventListener('beforeunload', async () => {
   saveSettings();
 });
 
-log('準備完了。Start を押してください。');
+uiLog('準備完了。Start を押してください。');
 </script>
 </body>
 </html>
