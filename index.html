@@ -27,7 +27,7 @@
         });
         videoEl.srcObject = stream;
         await videoEl.play();
-       
+       console.log('カメラ起動成功');
       } catch (err) {
         console.error('カメラ起動エラー:', err);
         alert('カメラを起動できませんでした: ' + (err.message || err.name));
