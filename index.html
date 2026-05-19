@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>レシート集計リーダー (多機能版) ｖ10.1</title>
+    <title>レシート集計リーダー (多機能版) ｖ10</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- localForage (内部ストレージ) -->
@@ -59,15 +59,25 @@
         }
         
         /* オーバーレイの影を薄く調整 (0.45 -> 0.2) */
-         .scan-overlay {                                 
-         box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0); 
+        .scan-overlay {
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* タップフォーカス用アニメーション */
+        @keyframes focus-pulse {
+            0% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; border-color: #facc15; }
+            50% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; border-color: #4ade80; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+        .focus-animate {
+            animation: focus-pulse 0.8s ease-out forwards;
         }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 pb-20">
 
     <header class="bg-blue-700 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center">
-        <h1 class="text-xl font-bold">📊 集計 (V10.1)</h1>
+        <h1 class="text-xl font-bold">📊 集計 (V10 高確度・堅牢版)</h1>
         <button id="nav-settings-btn" class="p-2 rounded hover:bg-blue-800 text-sm font-bold">⚙️ 設定/名簿</button>
     </header>
 
@@ -148,6 +158,8 @@
                             <div class="absolute w-full h-[1px] bg-green-500/50 top-1/2 left-0"></div>
                         </div>
                     </div>
+                    <!-- タップフォーカス用リングUI -->
+                    <div id="focus-ring" class="hidden absolute w-16 h-16 border-2 border-yellow-400 rounded-full pointer-events-none z-20" style="transform: translate(-50%, -50%);"></div>
                 </div>
 
                 <!-- 常に表示させるコントロールパネル -->
@@ -436,7 +448,7 @@
                 document.getElementById('copy-modal').classList.remove('hidden');
             });
             
-            setupPinchZoom();
+            setupTouchControls();
             bindCameraControls();
         });
 
@@ -558,11 +570,11 @@
                     await html5QrCode.start(
                         c,
                         { 
-                            fps: 12, 
-//QRBOX設定
+                            fps: 15, 
                             qrbox: { width: qrboxWidth, height: qrboxHeight },
                             formatsToSupport: [
-                                Html5QrcodeSupportedFormats.CODE_39
+                                Html5QrcodeSupportedFormats.CODE_39,
+                                Html5QrcodeSupportedFormats.QR_CODE
                             ]
                         },
                         async (decodedText) => {
@@ -754,21 +766,42 @@
             });
         }
 
-        // --- ピンチズーム操作 ---
-        function setupPinchZoom() {
+        // --- タッチ操作 (ピンチズーム & タップフォーカス) ---
+        function setupTouchControls() {
             let initialPinchDistance = null;
             let initialPinchZoom = 1;
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let isSingleTouch = false;
+            let touchStartTime = 0;
+
             const container = document.getElementById('reader-container');
 
             container.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 2 && videoTrack) {
+                if (!videoTrack) return;
+                
+                if (e.touches.length === 1) {
+                    isSingleTouch = true;
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                    touchStartTime = Date.now();
+                } else if (e.touches.length === 2) {
+                    isSingleTouch = false;
                     initialPinchDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
                     initialPinchZoom = camSettings.zoom;
                 }
             }, {passive: false});
 
             container.addEventListener('touchmove', (e) => {
-                if (e.touches.length === 2 && initialPinchDistance && videoTrack) {
+                if (!videoTrack) return;
+                
+                if (e.touches.length === 1 && isSingleTouch) {
+                    // タップ判定の閾値 (10px以上動いたらスワイプとみなす)
+                    const dist = Math.hypot(e.touches[0].clientX - touchStartX, e.touches[0].clientY - touchStartY);
+                    if (dist > 10) {
+                        isSingleTouch = false;
+                    }
+                } else if (e.touches.length === 2 && initialPinchDistance) {
                     e.preventDefault(); 
                     
                     const cap = typeof videoTrack.getCapabilities === 'function' ? videoTrack.getCapabilities() : null;
@@ -794,7 +827,67 @@
 
             container.addEventListener('touchend', (e) => {
                 if (e.touches.length < 2) initialPinchDistance = null;
+                
+                // シングルタップ (500ms以内) ならタップフォーカス
+                if (isSingleTouch && e.changedTouches.length === 1) {
+                    const duration = Date.now() - touchStartTime;
+                    if (duration < 500) {
+                        const touch = e.changedTouches[0];
+                        const rect = container.getBoundingClientRect();
+                        const clientX = touch.clientX;
+                        const clientY = touch.clientY;
+                        
+                        // 画像内における相対座標 (0.0 - 1.0)
+                        const px = clientX - rect.left;
+                        const py = clientY - rect.top;
+                        const x = Math.max(0, Math.min(1, px / rect.width));
+                        const y = Math.max(0, Math.min(1, py / rect.height));
+                        
+                        handleTapFocus(x, y, px, py);
+                    }
+                }
+                isSingleTouch = false;
             });
+            
+            // PC等のマウス操作用
+            container.addEventListener('click', (e) => {
+                if (!videoTrack || e.button !== 0) return;
+                const rect = container.getBoundingClientRect();
+                const px = e.clientX - rect.left;
+                const py = e.clientY - rect.top;
+                const x = Math.max(0, Math.min(1, px / rect.width));
+                const y = Math.max(0, Math.min(1, py / rect.height));
+                handleTapFocus(x, y, px, py);
+            });
+        }
+
+        async function handleTapFocus(x, y, px, py) {
+            if (!videoTrack) return;
+            
+            // UI表示
+            const focusRing = document.getElementById('focus-ring');
+            if (focusRing) {
+                focusRing.style.left = px + 'px';
+                focusRing.style.top = py + 'px';
+                focusRing.classList.remove('hidden', 'focus-animate');
+                void focusRing.offsetWidth; // reflow
+                focusRing.classList.add('focus-animate');
+            }
+
+            // マニュアルフォーカス時はタップでAFを駆動させない (スライダーの focusDistance に従う)
+            if (camSettings.focusMode === 'manual') return;
+
+            try {
+                const cap = typeof videoTrack.getCapabilities === 'function' ? videoTrack.getCapabilities() : {};
+                if (cap.pointsOfInterest) {
+                    // Chrome Android では pointsOfInterest を送信すると Single-shot AF がトリガーされる
+                    await videoTrack.applyConstraints({
+                        advanced: [{ pointsOfInterest: [{x: x, y: y}] }]
+                    });
+                }
+            } catch (err) {
+                console.warn('タップフォーカスエラー:', err);
+            }
         }
 
         // --- カメラ停止 ---
