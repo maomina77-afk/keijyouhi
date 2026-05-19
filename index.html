@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <title>Camera Test</title>
+  <title>Camera Test - Minimal</title>
   <style>
     video { width: 100%; max-width: 640px; background: #000; }
     #start { margin-top: 8px; padding: 8px 12px; }
@@ -12,7 +12,8 @@
   <h3>カメラテスト</h3>
   <video id="video" playsinline autoplay muted></video>
   <br />
-  <button id="start">Start カメラ開始</button>
+  <button id="start">Start カメラ開始 / 停止</button>
+
   <script>
     const startBtn = document.getElementById('start');
     const videoEl = document.getElementById('video');
@@ -20,14 +21,14 @@
 
     async function startCamera() {
       try {
-        // カメラを要求（背面カメラ優先）
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" } },
           audio: false
         });
         videoEl.srcObject = stream;
         await videoEl.play();
-       console.log('カメラ起動成功');
+        console.log('カメラ起動成功');
+        startBtn.textContent = 'Stop カメラ停止';
       } catch (err) {
         console.error('カメラ起動エラー:', err);
         alert('カメラを起動できませんでした: ' + (err.message || err.name));
@@ -40,20 +41,17 @@
         stream = null;
       }
       videoEl.srcObject = null;
+      startBtn.textContent = 'Start カメラ開始 / 停止';
     }
 
     startBtn.addEventListener('click', async () => {
-      // 既に起動していれば一度停止して再起動
       if (stream) {
         stopCamera();
-        // 少し待ってから再起動（端末によっては必要）
-        setTimeout(startCamera, 200);
       } else {
         await startCamera();
       }
     });
 
-    // ページ離脱時にカメラ停止
     window.addEventListener('beforeunload', stopCamera);
   </script>
 </body>
