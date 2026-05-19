@@ -3,52 +3,38 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>html5-qrcode 2x/4x Zoom テスト</title>
-
-<!-- html5-qrcode -->
+<title>html5-qrcode Zoom デバッグ（2x/4x）</title>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
-
 <style>
-  :root { --overlay-alpha: 0.32; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP"; margin:12px; background:#f7fafc; color:#0f172a; }
-  h1 { font-size:18px; margin-bottom:8px; }
-  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
-  button { padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; font-weight:600; }
-  button.primary { background:#2563eb; color:#fff; border-color:transparent; }
-  #reader { width:100%; max-width:720px; margin:0 auto; position:relative; }
-  #reader .qr-preview { height:360px; border-radius:12px; background:#000; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  /* hide html5-qrcode default overlay to avoid double-darkening */
-  #reader__scan_region_overlay, #reader__scan_region_overlay * { display:none !important; }
-  /* custom overlay: darken outside QRBOX */
-  #custom-overlay { position:absolute; inset:0; pointer-events:none; z-index:20; }
-  #custom-overlay::before {
-    content:""; position:absolute; inset:0;
-    background: rgba(0,0,0,var(--overlay-alpha));
-    -webkit-mask: radial-gradient(circle at center, transparent 0 40%, black 41%);
-    mask: radial-gradient(circle at center, transparent 0 40%, black 41%);
-    z-index:20;
-  }
-  /* QRBOX look */
-  #reader__scan_region_highlight { border:4px solid #3b82f6 !important; border-radius:12px !important; box-shadow:0 0 18px rgba(59,130,246,0.25) !important; z-index:30 !important; pointer-events:none; }
-  /* status / toast / log */
-  #mobile-status { position:fixed; left:8px; right:8px; top:12px; z-index:9999; display:none; justify-content:center; padding:10px 12px; border-radius:10px; font-weight:700; text-align:center; }
-  .status-info { background:#2563eb; color:#fff; }
-  .status-success { background:#059669; color:#fff; }
-  .status-warn { background:#f59e0b; color:#111; }
-  .status-error { background:#dc2626; color:#fff; }
-  #toast-container { position:fixed; left:50%; transform:translateX(-50%); bottom:18%; z-index:9999; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
-  .toast { pointer-events:auto; background:rgba(0,0,0,0.85); color:#fff; padding:10px 14px; border-radius:10px; min-width:160px; text-align:center; font-weight:600; }
-  .log { margin-top:12px; background:#fff; padding:8px; border-radius:8px; max-height:220px; overflow:auto; font-size:12px; box-shadow:0 1px 3px rgba(0,0,0,0.06); white-space:pre-wrap; }
-  .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
-  input[type=range] { width:180px; }
-  .small { font-size:13px; color:#334155; }
+  :root{--overlay-alpha:0.32}
+  body{font-family:system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP";margin:12px;background:#f7fafc;color:#0f172a}
+  h1{font-size:18px;margin-bottom:8px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  button{padding:8px 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;font-weight:600}
+  button.primary{background:#2563eb;color:#fff;border-color:transparent}
+  #reader{width:100%;max-width:720px;margin:0 auto;position:relative}
+  #reader .qr-preview{height:360px;border-radius:12px;background:#000;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  #reader__scan_region_overlay,#reader__scan_region_overlay *{display:none !important}
+  #custom-overlay{position:absolute;inset:0;pointer-events:none;z-index:20}
+  #custom-overlay::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,var(--overlay-alpha));-webkit-mask:radial-gradient(circle at center, transparent 0 40%, black 41%);mask:radial-gradient(circle at center, transparent 0 40%, black 41%);z-index:20}
+  #reader__scan_region_highlight{border:4px solid #3b82f6 !important;border-radius:12px !important;box-shadow:0 0 18px rgba(59,130,246,0.25) !important;z-index:30 !important;pointer-events:none}
+  #mobile-status{position:fixed;left:8px;right:8px;top:12px;z-index:9999;display:none;justify-content:center;padding:10px 12px;border-radius:10px;font-weight:700;text-align:center}
+  .status-info{background:#2563eb;color:#fff}
+  .status-success{background:#059669;color:#fff}
+  .status-warn{background:#f59e0b;color:#111}
+  .status-error{background:#dc2626;color:#fff}
+  #toast-container{position:fixed;left:50%;transform:translateX(-50%);bottom:18%;z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+  .toast{pointer-events:auto;background:rgba(0,0,0,0.85);color:#fff;padding:10px 14px;border-radius:10px;min-width:160px;text-align:center;font-weight:600}
+  .log{margin-top:12px;background:#fff;padding:8px;border-radius:8px;max-height:260px;overflow:auto;font-size:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06);white-space:pre-wrap}
+  input[type=range]{width:180px}
+  .small{font-size:13px;color:#334155}
 </style>
 </head>
 <body>
   <div id="mobile-status" aria-live="polite"></div>
   <div id="toast-container"></div>
 
-  <h1>html5‑qrcode Zoom テスト（Chrome）</h1>
+  <h1>html5‑qrcode Zoom デバッグ</h1>
 
   <div class="controls">
     <button id="startBtn" class="primary">Start</button>
@@ -56,10 +42,10 @@
     <button id="btn2x">2×</button>
     <button id="btn4x">4×</button>
     <button id="resetZoom">Reset</button>
-    <button id="testGetUserMedia">単体 getUserMedia テスト</button>
+    <button id="fallbackGum">直接 getUserMedia 起動</button>
   </div>
 
-  <div class="row small">
+  <div class="row small" style="margin-bottom:8px;">
     <label>ズームスライダー</label>
     <input id="zoomSlider" type="range" min="1" max="4" step="0.1" value="1" disabled>
     <span id="zoomVal">1.0x</span>
@@ -79,30 +65,25 @@
   <div class="log" id="log"></div>
 
 <script>
-/* ---------- UI helpers ---------- */
+/* UI helpers */
 const statusEl = document.getElementById('mobile-status');
 const toastContainer = document.getElementById('toast-container');
 const logEl = document.getElementById('log');
 function showStatus(msg, level='info', timeout=3000){
-  statusEl.className = '';
-  statusEl.classList.add('status-' + level);
-  statusEl.textContent = msg;
-  statusEl.style.display = 'flex';
-  if (timeout>0){
-    clearTimeout(statusEl._t);
-    statusEl._t = setTimeout(()=> statusEl.style.display='none', timeout);
-  }
+  statusEl.className = ''; statusEl.classList.add('status-' + level); statusEl.textContent = msg; statusEl.style.display = 'flex';
+  if (timeout>0){ clearTimeout(statusEl._t); statusEl._t = setTimeout(()=> statusEl.style.display='none', timeout); }
 }
-function showToast(msg, dur=1800){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; toastContainer.appendChild(t); setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),220); }, dur); }
-function uiLog(msg, level='info'){ const t=new Date().toLocaleTimeString(); logEl.textContent += `[${t}] ${msg}\n`; logEl.scrollTop = logEl.scrollHeight; if (level==='error') showStatus(msg,'error',6000); else if (level==='warn') showStatus(msg,'warn',3500); else if (level==='success') showStatus(msg,'success',2200); else showStatus(msg,'info',1800); }
+function showToast(msg, dur=1600){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; toastContainer.appendChild(t); setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),220); }, dur); }
+function uiLog(msg, level='info'){ const t=new Date().toLocaleTimeString(); logEl.textContent += `[${t}] ${msg}\n`; logEl.scrollTop = logEl.scrollHeight; if (level==='error') showStatus(msg,'error',6000); else if (level==='warn') showStatus(msg,'warn',3500); else if (level==='success') showStatus(msg,'success',2200); else showStatus(msg,'info',1600); }
 
-/* ---------- state ---------- */
+/* state */
 let html5QrCode = null;
 let currentTrack = null;
 let capabilities = null;
-let settings = { zoom:1, torch:false };
+let starting = false;
+let settings = { zoom:1 };
 
-/* ---------- DOM ---------- */
+/* DOM */
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const btn2x = document.getElementById('btn2x');
@@ -112,11 +93,11 @@ const zoomSlider = document.getElementById('zoomSlider');
 const zoomVal = document.getElementById('zoomVal');
 const previewHeight = document.getElementById('previewHeight');
 const previewHeightVal = document.getElementById('previewHeightVal');
-const testGetUserMedia = document.getElementById('testGetUserMedia');
+const fallbackGum = document.getElementById('fallbackGum');
 const readerContainer = document.getElementById('reader__container');
 
-/* ---------- utility: wait for video element ---------- */
-function waitForVideoElement(container, timeout=6000){
+/* wait for video element */
+function waitForVideoElement(container, timeout=8000){
   return new Promise((resolve,reject)=>{
     const v = container.querySelector('video');
     if (v) return resolve(v);
@@ -129,12 +110,18 @@ function waitForVideoElement(container, timeout=6000){
   });
 }
 
-/* ---------- start/stop + zoom logic ---------- */
-async function startScannerWithZoom(){
-  if (html5QrCode){ uiLog('既に起動済み','warn'); return; }
+/* start with html5-qrcode, prefer tele camera, robust waiting */
+async function startScannerRobust(){
+  if (starting) return;
+  starting = true;
+  uiLog('Start 押下', 'info');
+
+  // prevent double start
+  startBtn.disabled = true;
+
   html5QrCode = new Html5Qrcode("reader__container", { verbose:false });
 
-  // enumerate devices and prefer tele/2x camera
+  // enumerate devices and prefer tele-like camera
   let preferredDeviceId = null;
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -165,22 +152,32 @@ async function startScannerWithZoom(){
       await html5QrCode.start(
         c,
         { fps: 12, qrbox: { width: 300, height: 300 } },
-        (decodedText, decodedResult) => {
-          uiLog('読み取り成功: ' + decodedText, 'success');
-          navigator.vibrate && navigator.vibrate(40);
-        }
+        (decodedText)=>{ uiLog('読み取り: ' + decodedText, 'success'); navigator.vibrate && navigator.vibrate(40); }
       );
       started=true;
-      uiLog('起動成功', 'success');
+      uiLog('html5-qrcode 起動成功', 'success');
       break;
     } catch(err){
       uiLog('起動失敗: ' + (err && err.message ? err.message : err), 'warn');
       console.warn('start failed for', c, err);
     }
   }
-  if (!started){ uiLog('カメラ起動に失敗しました。権限・HTTPS・他アプリの占有を確認してください。','error'); html5QrCode=null; return; }
+  if (!started){
+    uiLog('html5-qrcode 起動に失敗しました。getUserMedia で直接試します。', 'warn');
+    // fallback to direct getUserMedia
+    try {
+      await fallbackGetUserMedia();
+      starting = false;
+      return;
+    } catch(e){
+      uiLog('直接 getUserMedia も失敗: ' + e.message, 'error');
+      startBtn.disabled = false;
+      starting = false;
+      return;
+    }
+  }
 
-  // wait for video element and get track
+  // wait for video and get track
   try {
     const video = await waitForVideoElement(readerContainer, 8000);
     uiLog('video 要素検出', 'info');
@@ -196,7 +193,6 @@ async function startScannerWithZoom(){
         torch: capabilities.torch,
         focusMode: capabilities.focusMode
       }), 'info');
-      // setup slider range if zoom supported
       if (capabilities.zoom){
         zoomSlider.min = capabilities.zoom.min;
         zoomSlider.max = capabilities.zoom.max;
@@ -208,40 +204,91 @@ async function startScannerWithZoom(){
         zoomSlider.disabled = true;
         uiLog('zoom capability がありません', 'warn');
       }
-      // torch button enable if supported
-      if (capabilities.torch){
-        // nothing extra here; user can toggle via applyTorch if you add a button
-      }
     } else {
       uiLog('getCapabilities 非対応', 'warn');
     }
 
-    startBtn.disabled = true;
     stopBtn.disabled = false;
+    startBtn.disabled = true;
+    starting = false;
+    showToast('カメラ起動完了');
   } catch(e){
     uiLog('video 取得エラー: ' + e.message, 'error');
     try { await html5QrCode.stop(); } catch(e){}
     html5QrCode = null;
+    startBtn.disabled = false;
+    starting = false;
   }
 }
 
-async function stopScanner(){
+/* fallback: direct getUserMedia and attach to reader container video element */
+async function fallbackGetUserMedia(){
+  uiLog('getUserMedia フォールバック開始', 'info');
+  // stop any existing
+  try { if (html5QrCode){ await html5QrCode.stop(); html5QrCode = null; } } catch(e){}
+  // create a video element inside reader__container
+  const existing = readerContainer.querySelector('video');
+  if (existing) { existing.remove(); }
+  const v = document.createElement('video');
+  v.autoplay = true; v.playsInline = true; v.muted = true; v.style.width = '100%';
+  readerContainer.appendChild(v);
+  // try to pick preferred device
+  let deviceId = null;
   try {
-    if (html5QrCode) { await html5QrCode.stop(); html5QrCode.clear(); html5QrCode = null; uiLog('停止しました','info'); }
-    if (currentTrack){ try{ currentTrack.stop(); }catch(e){} currentTrack=null; capabilities=null; }
-    startBtn.disabled = false; stopBtn.disabled = true;
-    zoomSlider.disabled = true;
-  } catch(e){
-    uiLog('停止エラー: ' + e.message, 'error');
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(d=>d.kind==='videoinput');
+    const preferKeywords = ['tele','2x','3x','rear','back','environment'];
+    for (const k of preferKeywords){
+      const found = videoDevices.find(d => (d.label||'').toLowerCase().includes(k));
+      if (found){ deviceId = found.deviceId; break; }
+    }
+    if (!deviceId && videoDevices.length) deviceId = videoDevices[0].deviceId;
+  } catch(e){ uiLog('enumerateDevices エラー: ' + e.message, 'warn'); }
+
+  const constraints = deviceId ? { video: { deviceId: { exact: deviceId }, width:{ ideal:1280 } } } : { video: { facingMode:'environment', width:{ ideal:1280 } } };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  v.srcObject = stream;
+  currentTrack = stream.getVideoTracks()[0];
+  uiLog('getUserMedia 成功: ' + (currentTrack.label || 'unknown'), 'success');
+
+  if (typeof currentTrack.getCapabilities === 'function'){
+    capabilities = currentTrack.getCapabilities();
+    uiLog('capabilities: ' + JSON.stringify({ zoom: capabilities.zoom, torch: capabilities.torch }), 'info');
+    if (capabilities.zoom){
+      zoomSlider.min = capabilities.zoom.min;
+      zoomSlider.max = capabilities.zoom.max;
+      zoomSlider.step = capabilities.zoom.step || 0.1;
+      zoomSlider.value = settings.zoom || capabilities.zoom.min || 1;
+      zoomVal.textContent = Number(zoomSlider.value).toFixed(1) + 'x';
+      zoomSlider.disabled = false;
+    } else {
+      zoomSlider.disabled = true;
+      uiLog('zoom capability がありません（フォールバック）', 'warn');
+    }
+  } else {
+    uiLog('getCapabilities 非対応（フォールバック）', 'warn');
   }
+  stopBtn.disabled = false;
+  startBtn.disabled = true;
 }
 
+/* stop */
+async function stopAll(){
+  try {
+    if (html5QrCode){ await html5QrCode.stop(); html5QrCode.clear(); html5QrCode = null; uiLog('html5-qrcode 停止', 'info'); }
+  } catch(e){ uiLog('html5-qrcode 停止エラー: ' + e.message, 'warn'); }
+  if (currentTrack){ try{ currentTrack.stop(); } catch(e){} currentTrack = null; capabilities = null; uiLog('トラック停止', 'info'); }
+  // remove fallback video if present
+  const v = readerContainer.querySelector('video');
+  if (v){ try{ v.srcObject = null; v.remove(); } catch(e){} }
+  startBtn.disabled = false; stopBtn.disabled = true; zoomSlider.disabled = true;
+}
+
+/* apply zoom safely */
 let zoomTimer = null;
 async function applyZoomValue(z){
-  if (!currentTrack || !capabilities || !capabilities.zoom){ uiLog('ズーム未対応またはトラック未取得','warn'); return; }
-  // clamp
+  if (!currentTrack || !capabilities || !capabilities.zoom){ uiLog('ズーム未対応またはトラック未取得', 'warn'); return; }
   const v = Math.max(capabilities.zoom.min, Math.min(capabilities.zoom.max, z));
-  // debounce
   if (zoomTimer) clearTimeout(zoomTimer);
   zoomTimer = setTimeout(async ()=>{
     try {
@@ -249,21 +296,20 @@ async function applyZoomValue(z){
       settings.zoom = v;
       zoomVal.textContent = Number(v).toFixed(1) + 'x';
       uiLog('ズーム適用: ' + v + 'x', 'success');
-      // save to localStorage
       try { localStorage.setItem('cameraZoom', String(v)); } catch(e){}
     } catch(err){
       uiLog('applyConstraints エラー: ' + (err && err.message ? err.message : err), 'error');
       console.warn(err);
     }
-  }, 60);
+  }, 80);
 }
 
-/* ---------- pinch zoom on video ---------- */
-function enablePinchOnVideo(){
+/* pinch zoom */
+function enablePinch(){
   const video = readerContainer.querySelector('video');
   if (!video) return;
   let lastDist = null;
-  function dist(touches){ const dx = touches[0].clientX - touches[1].clientX; const dy = touches[0].clientY - touches[1].clientY; return Math.hypot(dx,dy); }
+  function dist(t){ const dx = t[0].clientX - t[1].clientX; const dy = t[0].clientY - t[1].clientY; return Math.hypot(dx,dy); }
   video.addEventListener('touchstart', (ev)=>{ if (ev.touches.length===2) lastDist = dist(ev.touches); }, { passive:true });
   video.addEventListener('touchmove', (ev)=>{ if (ev.touches.length===2 && lastDist!=null){
     const d = dist(ev.touches); const diff = d - lastDist; const sensitivity = 0.005;
@@ -276,53 +322,23 @@ function enablePinchOnVideo(){
   video.addEventListener('touchend', ()=>{ lastDist = null; });
 }
 
-/* ---------- event bindings ---------- */
+/* events */
 startBtn.addEventListener('click', async ()=>{
-  uiLog('Start 押下', 'info');
-  await startScannerWithZoom();
-  // enable pinch after a short delay to ensure video exists
-  setTimeout(()=> enablePinchOnVideo(), 900);
+  await startScannerRobust();
+  // enable pinch after short delay
+  setTimeout(()=> enablePinch(), 900);
 });
-stopBtn.addEventListener('click', stopScanner);
-
+stopBtn.addEventListener('click', stopAll);
 btn2x.addEventListener('click', ()=> applyZoomValue(2));
 btn4x.addEventListener('click', ()=> applyZoomValue(4));
 resetZoom.addEventListener('click', ()=> applyZoomValue(1));
-
 zoomSlider.addEventListener('input', (e)=> applyZoomValue(Number(e.target.value)));
+previewHeight.addEventListener('input', (e)=>{ const h=Number(e.target.value); document.querySelector('#reader .qr-preview').style.height = h + 'px'; previewHeightVal.textContent = h; });
+fallbackGum.addEventListener('click', async ()=>{ try{ await fallbackGetUserMedia(); setTimeout(()=> enablePinch(),900); } catch(e){ uiLog('フォールバック失敗: ' + e.message, 'error'); } });
 
-previewHeight.addEventListener('input', (e)=>{
-  const h = Number(e.target.value);
-  document.querySelector('#reader .qr-preview').style.height = h + 'px';
-  previewHeightVal.textContent = h;
-});
-
-testGetUserMedia.addEventListener('click', async ()=>{
-  uiLog('単体 getUserMedia テスト開始', 'info');
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-    // show temporary video overlay
-    const tmp = document.createElement('video');
-    tmp.autoplay = true; tmp.playsInline = true; tmp.style.width = '100%'; tmp.style.maxWidth='480px';
-    tmp.srcObject = s;
-    document.body.appendChild(tmp);
-    uiLog('getUserMedia 成功: ' + (s.getVideoTracks()[0].label || 'unknown'), 'success');
-    // stop after 4s
-    setTimeout(()=>{ s.getTracks().forEach(t=>t.stop()); tmp.remove(); uiLog('テスト停止', 'info'); }, 4000);
-  } catch(e){
-    uiLog('getUserMedia エラー: ' + (e && e.message ? e.message : e), 'error');
-  }
-});
-
-/* restore saved zoom if any */
-try {
-  const saved = localStorage.getItem('cameraZoom');
-  if (saved) settings.zoom = Number(saved);
-} catch(e){}
-
-/* initial UI */
+/* restore saved zoom */
+try { const saved = localStorage.getItem('cameraZoom'); if (saved) settings.zoom = Number(saved); } catch(e){}
 zoomVal.textContent = Number(settings.zoom || 1).toFixed(1) + 'x';
-previewHeightVal.textContent = document.getElementById('previewHeight').value;
 uiLog('準備完了。Start を押してください。', 'info');
 </script>
 </body>
