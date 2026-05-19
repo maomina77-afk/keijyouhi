@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>レシート集計リーダー (多機能版) ｖ11</title>
+    <title>レシート集計リーダー (多機能版) ｖ12</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -69,7 +69,7 @@
 <body class="bg-gray-100 text-gray-800 pb-20">
 
     <header class="bg-blue-700 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center">
-        <h1 class="text-xl font-bold">📊 集計 (V11 連続スキャン対応版)</h1>
+        <h1 class="text-xl font-bold">📊 集計 (V12 MF状態保持対応)</h1>
         <button id="nav-settings-btn" class="p-2 rounded hover:bg-blue-800 text-sm font-bold">⚙️ 設定/名簿</button>
     </header>
 
@@ -496,31 +496,6 @@
                 console.warn('カメラ列挙エラー: ' + e.message);
             }
 
-            let testStream = null;
-            let testTrack = null;
-            try {
-                const constraints = preferredDeviceId
-                    ? { video: { deviceId: { exact: preferredDeviceId }, width: { ideal: 1280 } } }
-                    : { video: { facingMode: 'environment', width: { ideal: 1280 } } };
-
-                testStream = await navigator.mediaDevices.getUserMedia(constraints);
-                testTrack = testStream.getVideoTracks()[0];
-
-                if (typeof testTrack.getCapabilities === 'function') {
-                    const caps = testTrack.getCapabilities();
-                    if (caps.zoom) {
-                        const target = Math.max(caps.zoom.min, Math.min(caps.zoom.max, camSettings.zoom));
-                        await testTrack.applyConstraints({ advanced: [{ zoom: target }] });
-                        camSettings.zoom = target;
-                        await localforage.setItem('cameraNativeSettings', camSettings);
-                    }
-                }
-            } catch (err) {
-                console.warn('事前 getUserMedia エラー: ' + (err.message || err));
-            } finally {
-                try { if (testStream) testStream.getTracks().forEach(t => t.stop()); } catch(e){}
-            }
-
             if (!html5QrCode) {
                 html5QrCode = new Html5Qrcode("reader", { verbose: false });
             }
@@ -588,27 +563,19 @@
                     videoTrack = stream.getVideoTracks()[0];
                     if (videoTrack && typeof videoTrack.getCapabilities === 'function') {
                         const capabilities = videoTrack.getCapabilities();
-                        if (capabilities.zoom) {
-                            const z = Math.max(capabilities.zoom.min, Math.min(capabilities.zoom.max, camSettings.zoom));
-                            try {
-                                await videoTrack.applyConstraints({ advanced: [{ zoom: z }] });
-                            } catch (e) {
-                                console.warn('最終ズーム適用失敗: ' + e.message);
-                            }
-                        }
-                        setupAdvancedUI(capabilities);
+                        setupAdvancedUI(capabilities); // UIの更新
+                        await applyCameraSettings();   // ★修正箇所：ここで保存済みの設定（MF距離など）をハードウェアに強制再適用する
                     }
                 }
             }
 
             document.getElementById('camera-controls-container').classList.remove('hidden');
             
-            // 焦点距離のリアルタイム表示用ポーリング開始
+            // 焦点距離のリアルタイム表示用ポーリング開始 (間隔を500msに短縮)
             if (focusPollingInterval) clearInterval(focusPollingInterval);
-            focusPollingInterval = setInterval(updateFocusDistanceDisplay, 1000);
+            focusPollingInterval = setInterval(updateFocusDistanceDisplay, 500);
         }
 
-        // 焦点距離を画面に表示する関数
         function updateFocusDistanceDisplay() {
             if (!videoTrack) return;
             try {
@@ -657,16 +624,19 @@
                 btn.querySelector('span').textContent = camSettings.focusMode === 'manual' ? 'MANUAL' : 'AUTO';
                 btn.querySelector('span').className = camSettings.focusMode === 'manual' ? 'text-green-300' : 'text-blue-300';
                 
-                if (cap.focusDistance && camSettings.focusMode === 'manual') {
-                    document.getElementById('focus-dist-wrapper').classList.remove('hidden');
+                if (cap.focusDistance) {
                     const fs = document.getElementById('focus-dist-slider');
                     fs.min = cap.focusDistance.min;
                     fs.max = cap.focusDistance.max;
                     fs.step = cap.focusDistance.step || 0.01;
                     fs.value = camSettings.focusDistance;
                     document.getElementById('focus-dist-val').textContent = camSettings.focusDistance.toFixed(2);
-                } else {
-                    document.getElementById('focus-dist-wrapper').classList.add('hidden');
+                    
+                    if (camSettings.focusMode === 'manual') {
+                        document.getElementById('focus-dist-wrapper').classList.remove('hidden');
+                    } else {
+                        document.getElementById('focus-dist-wrapper').classList.add('hidden');
+                    }
                 }
             }
 
@@ -688,12 +658,19 @@
                 
                 if (cap.zoom) advanced.zoom = camSettings.zoom;
                 if (cap.exposureCompensation) advanced.exposureCompensation = camSettings.exposure;
-                if (cap.focusMode) advanced.focusMode = camSettings.focusMode;
-                if (camSettings.focusMode === 'manual' && cap.focusDistance) advanced.focusDistance = camSettings.focusDistance;
+                
+                // MF状態と距離の確実な適用
+                if (cap.focusMode) {
+                    advanced.focusMode = camSettings.focusMode;
+                    if (camSettings.focusMode === 'manual' && cap.focusDistance) {
+                        advanced.focusDistance = camSettings.focusDistance;
+                    }
+                }
+                
                 if (cap.torch) advanced.torch = camSettings.torch;
 
                 if (Object.keys(advanced).length > 0 && typeof videoTrack.applyConstraints === 'function') {
-                    await videoTrack.applyConstraints({ advanced: [advanced] }).catch(e => console.warn(e));
+                    await videoTrack.applyConstraints({ advanced: [advanced] }).catch(e => console.warn("Constraints apply warn:", e));
                 }
                 
                 await localforage.setItem('cameraNativeSettings', camSettings);
@@ -1637,14 +1614,11 @@
             oscillator.stop(context.currentTime + 0.1);
         }
 
-        // --- アップデート：連続スキャン用の自動復帰機能を実装 ---
         window.closeModal = async function(modalId) {
             document.getElementById(modalId).classList.add('hidden');
             isModalOpen = false;
             
-            // バーコードスキャンからの復帰時、かつスキャナーボタンがアクティブ状態なら自動再開
             if (modalId === 'edit-modal' && isScannerActive) {
-                // UIの切り替えを確実にするため、わずかなディレイを挟んでカメラを再起動する
                 setTimeout(async () => {
                     await startScanner();
                 }, 300);
