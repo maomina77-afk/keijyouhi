@@ -158,8 +158,10 @@
                             <div class="absolute w-full h-[1px] bg-green-500/50 top-1/2 left-0"></div>
                         </div>
                     </div>
-                    <!-- タップフォーカス用リングUI -->
-                    <div id="focus-ring" class="hidden absolute w-16 h-16 border-2 border-yellow-400 rounded-full pointer-events-none z-20" style="transform: translate(-50%, -50%);"></div>
+                    <!-- タップフォーカス用リングUIと焦点距離表示 -->
+                    <div id="focus-ring" class="hidden absolute w-16 h-16 border-2 border-yellow-400 rounded-full pointer-events-none z-20 flex flex-col items-center justify-center" style="transform: translate(-50%, -50%);">
+                        <span id="focus-dist-display" class="absolute top-full mt-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded shadow whitespace-nowrap hidden font-mono"></span>
+                    </div>
                 </div>
 
                 <!-- 常に表示させるコントロールパネル -->
@@ -861,11 +863,15 @@
             });
         }
 
+        let focusIntervalId = null;
+
         async function handleTapFocus(x, y, px, py) {
             if (!videoTrack) return;
             
             // UI表示
             const focusRing = document.getElementById('focus-ring');
+            const distDisplay = document.getElementById('focus-dist-display');
+
             if (focusRing) {
                 focusRing.style.left = px + 'px';
                 focusRing.style.top = py + 'px';
@@ -874,8 +880,16 @@
                 focusRing.classList.add('focus-animate');
             }
 
+            if (distDisplay) {
+                distDisplay.classList.remove('hidden');
+                distDisplay.textContent = 'Focusing...';
+            }
+
             // マニュアルフォーカス時はタップでAFを駆動させない (スライダーの focusDistance に従う)
-            if (camSettings.focusMode === 'manual') return;
+            if (camSettings.focusMode === 'manual') {
+                if (distDisplay) distDisplay.textContent = `Dist: ${camSettings.focusDistance.toFixed(2)}`;
+                return;
+            }
 
             try {
                 const cap = typeof videoTrack.getCapabilities === 'function' ? videoTrack.getCapabilities() : {};
@@ -885,8 +899,31 @@
                         advanced: [{ pointsOfInterest: [{x: x, y: y}] }]
                     });
                 }
+
+                // 焦点距離のリアルタイム取得ループ (約1.5秒間)
+                if (focusIntervalId) clearInterval(focusIntervalId);
+                let checkCount = 0;
+                focusIntervalId = setInterval(() => {
+                    checkCount++;
+                    if (checkCount > 15) { // 100ms * 15 = 1500ms
+                        clearInterval(focusIntervalId);
+                        focusIntervalId = null;
+                        return;
+                    }
+                    
+                    if (videoTrack && typeof videoTrack.getSettings === 'function') {
+                        const settings = videoTrack.getSettings();
+                        if (settings.focusDistance !== undefined) {
+                            distDisplay.textContent = `Dist: ${settings.focusDistance.toFixed(2)}`;
+                        } else {
+                            distDisplay.textContent = 'Auto AF'; // 未サポート端末用
+                        }
+                    }
+                }, 100);
+
             } catch (err) {
                 console.warn('タップフォーカスエラー:', err);
+                if (distDisplay) distDisplay.textContent = 'Error';
             }
         }
 
