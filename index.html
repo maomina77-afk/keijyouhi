@@ -1221,29 +1221,28 @@
                 for (let line of lines) { let m = line.match(/([^\s]+)様/); if (m) { extName.value = m[1].trim(); break; } }
             }
 
-            for (let line of lines.slice(0, 10)) {
+for (let line of lines.slice(0, 10)) {
 
-    // ① 番組（例：1番組）を先に判定
+    // ① 番組（例：1番組）
     if (!extBangumi.value) {
-        let m = line.match(/([0-9a-zA-Z一-龥]+)\s*番組/);
+        let m = line.match(/(\d+)\s*番組/);
         if (m) extBangumi.value = m[1];
     }
 
-    // ② 組（例：1組）を判定。ただし「番組」は除外
+    // ② 組（例：27組）ただし「番組」は除外
     if (!extKumi.value) {
-        let m = line.match(/([0-9a-zA-Z一-龥]+)\s*組(?!\s*み)/); 
-        // ↑ 「組」だが「組み」「番組」などは除外
-        if (m && !/番組/.test(line)) {
-            extKumi.value = m[1];
-        }
+        // 「番組」の “組” を除外するために「番組」を否定先読みで除外
+        let m = line.match(/(\d+)\s*(?<!番)組/);
+        if (m) extKumi.value = m[1];
     }
 
-    // ③ No の判定
+    // ③ No
     if (!extNo.value) {
         let m = line.match(/No\.?\s*([0-9a-zA-Z]+)/i);
         if (m) extNo.value = m[1];
     }
 }
+
 
             searchAndSetCandidate();
         }
