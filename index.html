@@ -463,7 +463,7 @@
         }
 
         async function startScanner() {
-            if (isScannerActive) return;
+            if (!isScannerActive) return;
             
             const wrapper = document.getElementById('scanner-wrapper');
             const readerContainer = document.getElementById('reader-container');
