@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>レシート集計リーダー (多機能版) ｖ12</title>
+    <title>レシート集計リーダー (多機能版) ｖ12.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -69,7 +69,7 @@
 <body class="bg-gray-100 text-gray-800 pb-20">
 
     <header class="bg-blue-700 text-white p-4 shadow-md sticky top-0 z-10 flex justify-between items-center">
-        <h1 class="text-xl font-bold">📊 集計 (V12 MF状態保持対応)</h1>
+        <h1 class="text-xl font-bold">📊 集計 (V12.1)</h1>
         <button id="nav-settings-btn" class="p-2 rounded hover:bg-blue-800 text-sm font-bold">⚙️ 設定/名簿</button>
     </header>
 
@@ -463,7 +463,7 @@
         }
 
         async function startScanner() {
-            if (!isScannerActive) return;
+            if (isScannerActive) return;
             
             const wrapper = document.getElementById('scanner-wrapper');
             const readerContainer = document.getElementById('reader-container');
@@ -564,14 +564,13 @@
                     if (videoTrack && typeof videoTrack.getCapabilities === 'function') {
                         const capabilities = videoTrack.getCapabilities();
                         setupAdvancedUI(capabilities); // UIの更新
-                        await applyCameraSettings();   // ★修正箇所：ここで保存済みの設定（MF距離など）をハードウェアに強制再適用する
+                        await applyCameraSettings();   // 保存済みの設定を強制適用
                     }
                 }
             }
 
             document.getElementById('camera-controls-container').classList.remove('hidden');
             
-            // 焦点距離のリアルタイム表示用ポーリング開始 (間隔を500msに短縮)
             if (focusPollingInterval) clearInterval(focusPollingInterval);
             focusPollingInterval = setInterval(updateFocusDistanceDisplay, 500);
         }
@@ -659,7 +658,6 @@
                 if (cap.zoom) advanced.zoom = camSettings.zoom;
                 if (cap.exposureCompensation) advanced.exposureCompensation = camSettings.exposure;
                 
-                // MF状態と距離の確実な適用
                 if (cap.focusMode) {
                     advanced.focusMode = camSettings.focusMode;
                     if (camSettings.focusMode === 'manual' && cap.focusDistance) {
@@ -1071,10 +1069,57 @@
             }
         });
 
-        document.getElementById('camera-btn').addEventListener('click', () => {
-            const input = document.getElementById('image-input');
-            input.setAttribute('capture', 'environment'); input.click();
+        // 📷 OCRボタンの挙動変更
+        document.getElementById('camera-btn').addEventListener('click', async () => {
+            if (isScannerActive) {
+                // バーコードリーダー稼働中の場合：表示中のスキャン枠を切り出して即OCR
+                if (!apiKey) { alert("APIキーを設定してください"); return showSetupArea(); }
+                const video = document.querySelector('#reader video');
+                if (!video) return;
+
+                showLoading('画像を取得中...');
+                try {
+                    const readerContainer = document.getElementById('reader-container');
+                    const wrapperWidth = readerContainer.clientWidth || window.innerWidth;
+                    const qrboxWidth = Math.floor(wrapperWidth * 0.95); 
+                    const qrboxHeight = Math.floor(90 * configScannerHeight); 
+
+                    const vw = video.videoWidth;
+                    const vh = video.videoHeight;
+                    const cw = video.clientWidth;
+                    const ch = video.clientHeight;
+
+                    const ratio = Math.max(cw / vw, ch / vh);
+                    const cropW = qrboxWidth / ratio;
+                    const cropH = qrboxHeight / ratio;
+                    const centerX = vw / 2;
+                    const centerY = vh / 2;
+                    const sx = centerX - (cropW / 2);
+                    const sy = centerY - (cropH / 2);
+
+                    const cvs = document.createElement('canvas');
+                    cvs.width = cropW;
+                    cvs.height = cropH;
+                    const ctx = cvs.getContext('2d');
+                    ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
+
+                    currentImageBase64 = cvs.toDataURL('image/jpeg', 0.8);
+                    
+                    await deactivateScanner();
+                    await executeOCR();
+                } catch (err) {
+                    hideLoading();
+                    showError("画像取得エラー: " + err.message);
+                }
+            } else {
+                // バーコードリーダーが停止している場合はリーダーを起動する
+                isScannerActive = true;
+                updateScannerUiState();
+                await startScanner();
+            }
         });
+
+        // 🖼️ 画面ボタン（既存のファイル選択機能）
         document.getElementById('file-btn').addEventListener('click', () => {
             const input = document.getElementById('image-input');
             input.removeAttribute('capture'); input.click();
@@ -1092,6 +1137,7 @@
                 document.getElementById('preview-area').classList.remove('hidden');
             } catch (err) { showError("画像エラー"); resetScanFlow(); } finally { hideLoading(); }
         });
+        
         document.getElementById('cancel-scan-btn').addEventListener('click', resetScanFlow);
         document.getElementById('cancel-save-btn').addEventListener('click', resetScanFlow);
 
@@ -1115,7 +1161,8 @@
             });
         }
 
-        document.getElementById('scan-btn').addEventListener('click', async () => {
+        // 共通OCR処理関数
+        async function executeOCR() {
             if (!apiKey) { alert("APIキーを設定してください"); return showSetupArea(); }
             showLoading('OCR解析中...');
             try {
@@ -1132,10 +1179,22 @@
                 if (!text) throw new Error("文字が検出されませんでした");
 
                 parseExtractedText(text);
+                document.getElementById('action-buttons-container').classList.add('hidden');
+                document.getElementById('summary-section').classList.add('hidden');
                 document.getElementById('preview-area').classList.add('hidden');
+                document.getElementById('scanner-wrapper').classList.add('hidden');
+                document.getElementById('camera-controls-container').classList.add('hidden');
                 document.getElementById('extraction-area').classList.remove('hidden');
-            } catch (err) { showError("読み取りエラー: " + err.message); } finally { hideLoading(); }
-        });
+            } catch (err) { 
+                showError("読み取りエラー: " + err.message); 
+                resetScanFlow();
+            } finally { 
+                hideLoading(); 
+            }
+        }
+
+        // 古いプレビュー画面の「✨ OCR読み取り」ボタン処理
+        document.getElementById('scan-btn').addEventListener('click', executeOCR);
 
         function parseExtractedText(text) {
             document.getElementById('raw-text').value = text;
@@ -1148,7 +1207,7 @@
             const lines = text.split('\n');
             let maxAmount = 0; let match;
             
-            const amountRegex = /([0-9,]+)[\s　]*円/g;
+            const amountRegex = /([0-9,]+)[\s ]*円/g;
             while ((match = amountRegex.exec(text)) !== null) {
                 let val = parseInt(match[1].replace(/,/g, ''), 10);
                 if (!isNaN(val) && val > maxAmount) maxAmount = val;
@@ -1156,16 +1215,16 @@
             if (maxAmount > 0) extAmount.value = maxAmount;
 
             for (let line of lines) {
-                let m = line.match(/(.*?)[\s　]+様/); if (m) { extName.value = m[1].trim(); break; }
+                let m = line.match(/(.*?)[\s ]+様/); if (m) { extName.value = m[1].trim(); break; }
             }
             if (!extName.value) {
                 for (let line of lines) { let m = line.match(/([^\s]+)様/); if (m) { extName.value = m[1].trim(); break; } }
             }
 
             for (let line of lines.slice(0, 10)) {
-                if (!extBangumi.value) { let m = line.match(/([0-9a-zA-Z一-龥]+)[\s　]*番組/); if (m) extBangumi.value = m[1]; }
-                if (!extKumi.value) { let m = line.match(/([0-9a-zA-Z一-龥]+)[\s　]*組/); if (m) extKumi.value = m[1]; }
-                if (!extNo.value) { let m = line.match(/No\.?[\s　]*([0-9a-zA-Z]+)/i); if (m) extNo.value = m[1]; }
+                if (!extBangumi.value) { let m = line.match(/([0-9a-zA-Z一-龥]+)[\s ]*番組/); if (m) extBangumi.value = m[1]; }
+                if (!extKumi.value) { let m = line.match(/([0-9a-zA-Z一-龥]+)[\s ]*組/); if (m) extKumi.value = m[1]; }
+                if (!extNo.value) { let m = line.match(/No\.?[\s ]*([0-9a-zA-Z]+)/i); if (m) extNo.value = m[1]; }
             }
             searchAndSetCandidate();
         }
@@ -1176,12 +1235,12 @@
             const no = document.getElementById('ext-no').value;
             const name = document.getElementById('ext-name').value;
             let targetPrefix = (kumi && bangumi && no) ? `${kumi}-${bangumi}-${no}` : "";
-            const normalize = s => (s || "").replace(/[\s　]/g, '');
+            const normalize = s => (s || "").replace(/[\s ]/g, '');
             const searchName = normalize(name);
             let matchedId = "";
 
             for (let r of roster) {
-                const [prefix, ...nameParts] = (r["氏名"] || "").split(/[\s　]+/);
+                const [prefix, ...nameParts] = (r["氏名"] || "").split(/[\s ]+/);
                 const pName = normalize(nameParts.join(''));
                 if (targetPrefix && searchName && prefix === targetPrefix && pName === searchName) { matchedId = r.ID; break; }
                 if (targetPrefix && prefix === targetPrefix && !matchedId) { matchedId = r.ID; }
@@ -1564,7 +1623,7 @@
                 const txtFolder = zip.folder("OCRテキスト");
 
                 scanData.forEach(data => {
-                    const safeName = (data.name || "不明").replace(/[\/\\:*?"<>|　 ]/g, "_");
+                    const safeName = (data.name || "不明").replace(/[\/\\:*?"<>|  ]/g, "_");
                     const safeDate = (data.datetime || "").replace(/[\/:\s]/g, "");
                     const baseFilename = `${data.id}_${safeName}_${safeDate}`;
                     
